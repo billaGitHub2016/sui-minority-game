@@ -1,0 +1,130 @@
+# sui-nextjs-auth-template（pnpm Monorepo）
+
+这个仓库基于 **Sui dApp Starter**，使用 pnpm workspace 管理前后端代码：
+
+- `packages/frontend`：Next.js 前端
+- `packages/backend`：Move 合约 + Suibase 相关脚本
+
+## 环境要求
+
+- Node.js >= 20
+- pnpm（建议使用项目声明的版本）
+- Suibase（用于本地链/网络工具）
+
+## 安装依赖
+
+在仓库根目录执行：
+
+```bash
+pnpm install
+```
+
+## 本地开发（从根目录启动前端）
+
+在仓库根目录执行：
+
+```bash
+pnpm dev
+```
+
+该命令会启动 `packages/frontend` 的 Next.js 开发服务器。
+
+## 后端（Move 合约）如何部署
+
+这里的“后端”指的是 Move 合约包。部署合约后，会自动把最新的 `packageId` 写入前端的 `packages/frontend/.env.local`，供前端调用。
+
+### Localnet（推荐用于开发）
+
+1) 启动本地网络（会同时启动本地 Explorer）：
+
+```bash
+pnpm localnet:start
+```
+
+2) 部署合约到 localnet：
+
+```bash
+pnpm localnet:deploy
+```
+
+部署成功后会自动创建/更新：
+
+- `packages/frontend/.env.local`
+- 写入 `NEXT_PUBLIC_LOCALNET_CONTRACT_PACKAGE_ID=...`
+
+### Devnet / Testnet / Mainnet
+
+1) 确保对应网络环境已准备好：
+
+```bash
+pnpm devnet:start
+# 或：pnpm testnet:start
+# 或：pnpm mainnet:start
+```
+
+2) 部署合约：
+
+```bash
+pnpm devnet:deploy
+# 或：pnpm testnet:deploy
+# 或：pnpm mainnet:deploy
+```
+
+部署成功后会自动写入（在 `packages/frontend/.env.local`）：
+
+- `NEXT_PUBLIC_DEVNET_CONTRACT_PACKAGE_ID=...`
+- `NEXT_PUBLIC_TESTNET_CONTRACT_PACKAGE_ID=...`
+- `NEXT_PUBLIC_MAINNET_CONTRACT_PACKAGE_ID=...`
+
+注意：
+
+- Mainnet 没有水龙头，需要你自己的地址里有足够的 SUI 作为 gas。
+- 常用辅助命令：`pnpm devnet:address` / `pnpm testnet:address` / `pnpm mainnet:address` 以及 `pnpm devnet:links` / `pnpm testnet:links` / `pnpm mainnet:links`。
+- 如果遇到依赖校验/版本不匹配问题，可以使用 `*:deploy:no-dependency-check` 相关脚本（谨慎使用）。
+- `.env.local` 是本地文件（默认不会提交到 Git）。如果你在 CI/云端部署前端（例如 Vercel），也需要在对应环境里配置同名环境变量（Vercel Project Settings -> Environment Variables，或使用 `vercel env add ...`）。
+
+## Localnet 常用命令（补充）
+
+查看状态：
+
+```bash
+pnpm localnet:status
+```
+
+停止本地网络（和本地 Explorer）：
+
+```bash
+pnpm localnet:stop
+```
+
+给某个地址打水（localnet）：
+
+```bash
+pnpm localnet:faucet 0xYOURADDRESS
+```
+
+## 部署前端到 Vercel（从根目录）
+
+推荐用根目录脚本直接部署 `packages/frontend`：
+
+```bash
+pnpm vercel:prod
+```
+
+它等价于在根目录执行：
+
+```bash
+vercel --cwd packages/frontend --prod
+```
+
+### 想在根目录直接跑 `vercel --prod`？
+
+两种常见方式（二选一即可）：
+
+1) 在 Vercel Project 设置里把 **Root Directory** 配置为 `packages/frontend`。
+
+2) 在本地用 Vercel CLI 把当前目录链接到对应项目（`vercel link`），并确保链接配置指向 `packages/frontend`（或者直接在 `packages/frontend` 目录下执行 `vercel link` / `vercel --prod`）。
+
+## 其他命令
+
+根目录的 `package.json` 里封装了常用命令（例如 `build`、`lint`、各种网络的 deploy 等）；你也可以进入子项目目录分别运行它们自己的脚本。

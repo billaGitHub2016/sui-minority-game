@@ -6,6 +6,7 @@ pnpm-debug.log*
 # Misc
 node_modules
 *.local
+.vercel
 
 # Editor directories and files
 .vscode/*

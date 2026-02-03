@@ -2,6 +2,8 @@
 [![Build and Lint (frontend)](https://github.com/suiware/sui-dapp-starter/actions/workflows/build_and_lint.yaml/badge.svg)](https://github.com/suiware/sui-dapp-starter/actions/workflows/build_and_lint.yaml)
 [![Discord chat](https://img.shields.io/discord/1237259509366521866.svg?logo=discord&style=flat-square)](https://discord.com/invite/HuDPpXz4Hx)
 
+[中文文档](./README.zh-CN.md)
+
 ![Spoiler](https://repository-images.githubusercontent.com/794883099/f0937c6b-c021-41db-b44a-a287b29111c3)
 
 [Won the 1st place in the Randomness category of the Sui Overflow 2024 hackathon](https://blog.sui.io/2024-sui-overflow-hackathon-winners/)
@@ -132,4 +134,80 @@ Copyright (c) 2024 Konstantin Komelin and other contributors
 Code is licensed under [MIT](https://github.com/suiware/sui-dapp-starter?tab=MIT-1-ov-file)
 
 SVG Graphics used for NFTs is licensed under [CC-BY 4.0](https://github.com/suiware/sui-dapp-starter?tab=CC-BY-4.0-2-ov-file)
-# sui-nextjs-auth-template
+
+## sui-nextjs-auth-template
+
+This repo is a pnpm monorepo:
+
+- `packages/frontend`: Next.js app
+- `packages/backend`: Move package + Suibase helpers
+
+### Develop (from repo root)
+
+```bash
+pnpm dev
+```
+
+### Deploy frontend to Vercel (from repo root)
+
+```bash
+pnpm vercel:prod
+```
+
+Notes:
+
+- `pnpm vercel:prod` deploys the Next.js app in `packages/frontend` by running `vercel --cwd packages/frontend --prod`.
+- If you want to run `vercel --prod` directly from the repo root, configure your Vercel Project Root Directory as `packages/frontend` (and/or run `vercel link` accordingly).
+
+### Backend (Move) deployment
+
+The backend here is a Move package. Deploying it will also write the deployed package id into `packages/frontend/.env.local` so the frontend can call it.
+
+#### Localnet (recommended for development)
+
+1) Start local network (+ explorer):
+
+```bash
+pnpm localnet:start
+```
+
+2) Deploy Move package to localnet:
+
+```bash
+pnpm localnet:deploy
+```
+
+After a successful deploy, `packages/frontend/.env.local` will be created/updated with:
+
+- `NEXT_PUBLIC_LOCALNET_CONTRACT_PACKAGE_ID=...`
+
+#### Devnet / Testnet / Mainnet
+
+1) Ensure the corresponding network setup is ready:
+
+```bash
+pnpm devnet:start
+# or: pnpm testnet:start
+# or: pnpm mainnet:start
+```
+
+2) Deploy:
+
+```bash
+pnpm devnet:deploy
+# or: pnpm testnet:deploy
+# or: pnpm mainnet:deploy
+```
+
+This will create/update `packages/frontend/.env.local` with:
+
+- `NEXT_PUBLIC_DEVNET_CONTRACT_PACKAGE_ID=...`
+- `NEXT_PUBLIC_TESTNET_CONTRACT_PACKAGE_ID=...`
+- `NEXT_PUBLIC_MAINNET_CONTRACT_PACKAGE_ID=...`
+
+Notes:
+
+- Mainnet has no faucet; you need a funded address.
+- Useful helpers: `pnpm devnet:address` / `pnpm testnet:address` / `pnpm mainnet:address` and `pnpm devnet:links` / `pnpm testnet:links` / `pnpm mainnet:links`.
+- If you run into dependency verification issues, there are `*:deploy:no-dependency-check` scripts (use with care).
+- If you deploy from another machine/CI (e.g. Vercel), set the same `NEXT_PUBLIC_*_CONTRACT_PACKAGE_ID` env vars in that environment as well (Vercel Project Settings -> Environment Variables, or `vercel env add ...`).

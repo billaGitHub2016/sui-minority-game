@@ -2,6 +2,7 @@
   "name": "sui-dapp-starter",
   "version": "0.21.1",
   "description": "Easy-to-Use Full-Stack Sui Starter",
+  "packageManager": "pnpm@10.18.0",
   "scripts": {
     "dev": "pnpm frontend:dev",
     "start": "pnpm dev",
@@ -66,7 +67,10 @@
     "mainnet:update": "pnpm --filter backend mainnet:update",
     "mainnet:deploy": "pnpm --filter backend mainnet:deploy",
     "mainnet:deploy:no-dependency-check": "pnpm --filter backend mainnet:deploy:no-dependency-check",
-    "mainnet:address": "pnpm --filter backend mainnet:address"
+    "mainnet:address": "pnpm --filter backend mainnet:address",
+
+    "vercel:preview": "vercel --cwd packages/frontend",
+    "vercel:prod": "vercel --cwd packages/frontend --prod"
   },
   "engines": {
     "node": ">=20"

@@ -132,3 +132,4 @@ Copyright (c) 2024 Konstantin Komelin and other contributors
 Code is licensed under [MIT](https://github.com/suiware/sui-dapp-starter?tab=MIT-1-ov-file)
 
 SVG Graphics used for NFTs is licensed under [CC-BY 4.0](https://github.com/suiware/sui-dapp-starter?tab=CC-BY-4.0-2-ov-file)
+# sui-nextjs-auth-template

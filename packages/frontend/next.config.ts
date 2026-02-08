@@ -1,8 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "export",
-  distDir: "dist",
+  // output: "export", // Disabled to support API Routes (Auth, Cron)
+  // distDir: "dist",
   reactStrictMode: true,
   transpilePackages: [
     "@mysten/dapp-kit",
@@ -13,7 +13,7 @@ const nextConfig: NextConfig = {
     "@radix-ui/react-select",
     "@radix-ui/react-toggle",
   ],
-  turbopack: {
+  /* turbopack: {
     resolveExtensions: [
       ".mdx",
       ".tsx",
@@ -23,7 +23,7 @@ const nextConfig: NextConfig = {
       ".mjs",
       ".json",
     ],
-  },
+  }, */
   webpack: (config) => {
     config.externals = [...(config.externals || []), "encoding"];
     return config;

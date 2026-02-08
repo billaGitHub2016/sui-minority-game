@@ -1,0 +1,11 @@
+
+[package]
+name = "minority_game"
+version = "0.0.1"
+edition = "2024.beta"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "testnet-v1.57.2" }
+
+[addresses]
+minority_game = "0x0"

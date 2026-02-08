@@ -1,7 +1,7 @@
 {
-  "name": "sui-dapp-starter",
-  "version": "0.21.1",
-  "description": "Easy-to-Use Full-Stack Sui Starter",
+  "name": "sui-minority-game",
+  "version": "0.1.0",
+  "description": "A Sui Dapp that implements the Minority Game",
   "packageManager": "pnpm@10.18.0",
   "scripts": {
     "dev": "pnpm frontend:dev",

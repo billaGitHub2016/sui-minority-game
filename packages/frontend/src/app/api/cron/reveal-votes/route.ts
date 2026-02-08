@@ -23,7 +23,7 @@ export async function GET() {
   )
 
   const { data: backups, error } = await supabase
-    .from('vote_backups')
+    .from('user_votes')
     .select(`
         *,
         topics!inner (
@@ -102,23 +102,40 @@ export async function GET() {
 
               if (res.effects?.status.status === 'success') {
                   // Update DB with Revealed Status
-                  await supabase.from('vote_backups')
+                  await supabase.from('user_votes')
                       .update({ status: 'revealed', reveal_tx: res.digest, choice: decryptedChoice }) // Update choice to plaintext
                       .eq('id', backup.id);
                   results.push({ id: backup.id, status: 'success', digest: res.digest });
               } else {
                   console.error("Reveal failed on-chain:", res.effects?.status);
+                  const errorStr = String(res.effects?.status.error);
+                  
                   // If "Already Revealed" error (E_ALREADY_REVEALED = 9), mark as revealed
-                  if (String(res.effects?.status.error).includes('9')) {
-                       await supabase.from('vote_backups')
+                  if (errorStr.includes('9')) {
+                       await supabase.from('user_votes')
                           .update({ status: 'revealed', reveal_tx: res.digest })
                           .eq('id', backup.id);
+                  } 
+                  // If "Poll Ended" error (E_POLL_ENDED = 0), mark as expired
+                  else if (errorStr.includes(', 0)')) {
+                       await supabase.from('user_votes')
+                          .update({ status: 'expired' })
+                          .eq('id', backup.id);
                   }
+
                   results.push({ id: backup.id, status: 'failed', error: res.effects?.status.error });
               }
           } catch (e) {
               console.error("Exec failed:", e);
-              results.push({ id: backup.id, status: 'error', msg: String(e) });
+              // Handle dry run failure (which throws exception instead of returning failure effect)
+              if (String(e).includes(', 0)')) {
+                   await supabase.from('user_votes')
+                      .update({ status: 'expired' })
+                      .eq('id', backup.id);
+                   results.push({ id: backup.id, status: 'expired', msg: String(e) });
+              } else {
+                   results.push({ id: backup.id, status: 'error', msg: String(e) });
+              }
           }
       }
   }

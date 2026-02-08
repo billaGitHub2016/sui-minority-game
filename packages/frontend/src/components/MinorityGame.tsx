@@ -2,7 +2,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
-import { useCurrentAccount, useSignAndExecuteTransaction, useSuiClient } from '@mysten/dapp-kit'
+import { useCurrentAccount, useSignAndExecuteTransaction, useSuiClient, useSuiClientContext } from '@mysten/dapp-kit'
 import { Button, Card, Flex, Text, Badge, Heading, Grid, Box } from '@radix-ui/themes'
 import { Transaction } from '@mysten/sui/transactions'
 import { isValidSuiObjectId } from '@mysten/sui/utils'
@@ -24,6 +24,7 @@ export default function MinorityGame() {
   const supabase = createClient()
   const account = useCurrentAccount()
   const client = useSuiClient()
+  const ctx = useSuiClientContext()
   const { mutate: signAndExecute } = useSignAndExecuteTransaction()
   const [topics, setTopics] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -187,19 +188,20 @@ export default function MinorityGame() {
      }, {
          onSuccess: async (result) => {
              // 4. Backup ENCRYPTED Vote to Server
-             await fetch('/api/vote/backup', {
-                 method: 'POST',
-                 headers: { 'Content-Type': 'application/json' },
-                 body: JSON.stringify({
-                     topic_id: topic.id,
-                     user_address: account.address,
-                     choice: "ENCRYPTED", // Hide choice
-                     salt: ciphertext, // Store ciphertext in salt field (hacky but works for MVP)
-                     tx_digest: result.digest
-                 })
-             });
-             
-             alert(`Vote Encrypted & Committed! It will be automatically decrypted and revealed after voting ends.`)
+            await fetch('/api/vote/backup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    topic_id: topic.id,
+                    user_address: account.address,
+                    choice: "ENCRYPTED", // Hide choice
+                    salt: ciphertext, // Store ciphertext in salt field (hacky but works for MVP)
+                    tx_digest: result.digest,
+                    network: ctx.network,
+                })
+            });
+            
+            alert(`Vote Encrypted & Committed! It will be automatically decrypted and revealed after voting ends.`)
              fetchTopics()
          },
          onError: (err) => {

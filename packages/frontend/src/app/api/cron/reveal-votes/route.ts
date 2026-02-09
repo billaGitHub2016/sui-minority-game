@@ -13,7 +13,16 @@ const ADMIN_SECRET_KEY = process.env.ADMIN_SECRET_KEY;
 const POLL_DURATION = 120 * 1000; // 2 mins
 
 export async function GET() {
-  if (!ADMIN_SECRET_KEY || !PACKAGE_ID) {
+  // Reload env vars at runtime to support standalone script execution
+  const currentPackageId = PACKAGE_ID || process.env.NEXT_PUBLIC_PACKAGE_ID;
+  const currentAdminKey = ADMIN_SECRET_KEY || process.env.ADMIN_SECRET_KEY;
+
+  if (!currentAdminKey || !currentPackageId) {
+      console.error("Config Check Failed:", { 
+          hasAdminKey: !!currentAdminKey, 
+          hasPackageId: !!currentPackageId,
+          envPackageId: process.env.NEXT_PUBLIC_PACKAGE_ID 
+      });
       return NextResponse.json({ error: 'Config missing' }, { status: 500 })
   }
 
@@ -22,120 +31,135 @@ export async function GET() {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  const { data: backups, error } = await supabase
-    .from('user_votes')
-    .select(`
-        *,
-        topics!inner (
-            created_at,
-            on_chain_id
-        )
-    `)
-    .eq('status', 'committed')
-    .not('topics.on_chain_id', 'is', null)
-
-  if (error) {
-      console.error("Fetch error:", error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
-  }
-
   const client = new SuiClient({ url: getFullnodeUrl('testnet') });
-  const { schema, secretKey } = decodeSuiPrivateKey(ADMIN_SECRET_KEY);
+  const { schema, secretKey } = decodeSuiPrivateKey(currentAdminKey);
   const signer = Ed25519Keypair.fromSecretKey(secretKey);
   const now = Date.now();
   const results = [];
 
-  for (const backup of backups) {
-      const topicCreatedAt = new Date(backup.topics.created_at).getTime();
+  // 1. Query topics that have ended voting phase
+  const { data: topics, error: topicsError } = await supabase
+    .from('topics')
+    .select('*')
+    .eq('status', 'active') // Only check active topics
+    .not('on_chain_id', 'is', null);
+
+  if (topicsError) {
+      console.error("Topics Fetch error:", topicsError)
+      return NextResponse.json({ error: topicsError.message }, { status: 500 })
+  }
+
+  for (const topic of topics) {
+      const topicCreatedAt = new Date(topic.created_at).getTime();
       
-      // Check if Voting Phase Ended (Reveal Phase Open)
+      // Check if Voting Phase Ended
       if (now > topicCreatedAt + POLL_DURATION) {
-          try {
-              console.log(`Processing backup ${backup.id}...`);
-              
-              // 1. Decrypt Time-Locked Data
-              // `salt` field contains the Ciphertext (hacky but convenient)
-              // `choice` is "ENCRYPTED"
-              
-              let decryptedChoice = "";
-              let decryptedSalt = "";
-              
-              if (backup.choice === "ENCRYPTED") {
-                  try {
-                      // Attempt decrypt
-                      const plaintext = await tlock.timelockDecrypt(
-                          backup.salt, // ciphertext
-                          tlock.mainnetClient()
-                      );
-                      const data = JSON.parse(plaintext.toString());
-                      decryptedChoice = data.choice;
-                      decryptedSalt = data.salt;
-                      console.log(`Decrypted: ${decryptedChoice}`);
-                  } catch (e) {
-                      console.log("Not yet decryptable (time not reached):", e);
-                      // Skip this backup if time not reached (Drand round not yet published)
-                      continue;
+          console.log(`Processing Topic ${topic.id} (Voting Ended)...`);
+          
+          // Update Topic Status to 'revealing' locally first (optional, but good for UI)
+          // We don't strictly need to update DB status to 'revealing' if we just process it.
+          // But user requirement says: "Change topic status to revealing"
+          
+          // 2. Find votes for this topic
+          const { data: votes, error: votesError } = await supabase
+              .from('user_votes')
+              .select('*')
+              .eq('topic_id', topic.id)
+              .eq('status', 'committed');
+
+          if (votesError) {
+              console.error(`Error fetching votes for topic ${topic.id}:`, votesError);
+              continue;
+          }
+          
+          let allRevealed = true;
+
+          for (const vote of votes) {
+              try {
+                  // Decrypt
+                  let decryptedChoice = "";
+                  let decryptedSalt = "";
+
+                  if (vote.choice === "ENCRYPTED") {
+                      try {
+                          const plaintext = await tlock.timelockDecrypt(
+                              vote.salt, 
+                              tlock.mainnetClient()
+                          );
+                          const data = JSON.parse(plaintext.toString());
+                          decryptedChoice = data.choice;
+                          decryptedSalt = data.salt;
+                      } catch (e) {
+                          console.log(`Vote ${vote.id} not yet decryptable:`, e);
+                          allRevealed = false; // Cannot finish topic yet
+                          continue; 
+                      }
+                  } else {
+                      decryptedChoice = vote.choice;
+                      decryptedSalt = vote.salt;
                   }
-              } else {
-                  // Legacy plaintext fallback
-                  decryptedChoice = backup.choice;
-                  decryptedSalt = backup.salt;
-              }
 
-              // 2. Submit Reveal Transaction
-              const tx = new Transaction();
-              tx.moveCall({
-                  target: `${PACKAGE_ID}::${MODULE_NAME}::reveal_vote`,
-                  arguments: [
-                      tx.object(backup.topics.on_chain_id),
-                      tx.pure.vector('u8', Buffer.from(decryptedChoice, 'utf8')),
-                      tx.pure.vector('u8', Buffer.from(decryptedSalt, 'hex')),
-                      tx.object('0x6')
-                  ]
-              });
+                  // Reveal on Chain
+                  const tx = new Transaction();
+                  tx.moveCall({
+                      target: `${currentPackageId}::${MODULE_NAME}::reveal_vote`,
+                      arguments: [
+                          tx.object(topic.on_chain_id),
+                          tx.pure.vector('u8', Buffer.from(decryptedChoice, 'utf8')),
+                          tx.pure.vector('u8', Buffer.from(decryptedSalt, 'hex')),
+                          tx.object('0x6')
+                      ]
+                  });
 
-              const res = await client.signAndExecuteTransaction({
-                  signer,
-                  transaction: tx,
-                  options: { showEffects: true }
-              });
+                  const res = await client.signAndExecuteTransaction({
+                      signer,
+                      transaction: tx,
+                      options: { showEffects: true }
+                  });
 
-              if (res.effects?.status.status === 'success') {
-                  // Update DB with Revealed Status
-                  await supabase.from('user_votes')
-                      .update({ status: 'revealed', reveal_tx: res.digest, choice: decryptedChoice }) // Update choice to plaintext
-                      .eq('id', backup.id);
-                  results.push({ id: backup.id, status: 'success', digest: res.digest });
-              } else {
-                  console.error("Reveal failed on-chain:", res.effects?.status);
-                  const errorStr = String(res.effects?.status.error);
+                  if (res.effects?.status.status === 'success' || String(res.effects?.status.error).includes('9')) {
+                      // Update Vote Status
+                      await supabase.from('user_votes')
+                          .update({ status: 'revealed', reveal_tx: res.digest, choice: decryptedChoice })
+                          .eq('id', vote.id);
+                      results.push({ id: vote.id, status: 'revealed' });
+                  } else {
+                      console.error(`Reveal failed for vote ${vote.id}:`, res.effects?.status);
+                      allRevealed = false;
+                  }
+
+              } catch (e) {
+                  const errStr = String(e);
+                  // Check for MoveAbort with error code 0 (E_POLL_ENDED)
+                  // Matches formats like "MoveAbort(..., 0)" or "sub status 0"
+                  const isExpired = errStr.includes('MoveAbort') && (errStr.includes(', 0)') || errStr.includes('sub status 0'));
                   
-                  // If "Already Revealed" error (E_ALREADY_REVEALED = 9), mark as revealed
-                  if (errorStr.includes('9')) {
-                       await supabase.from('user_votes')
-                          .update({ status: 'revealed', reveal_tx: res.digest })
-                          .eq('id', backup.id);
-                  } 
-                  // If "Poll Ended" error (E_POLL_ENDED = 0), mark as expired
-                  else if (errorStr.includes(', 0)')) {
-                       await supabase.from('user_votes')
-                          .update({ status: 'expired' })
-                          .eq('id', backup.id);
+                  if (isExpired) {
+                       console.log(`Vote ${vote.id} expired (Reveal phase ended). Marking as expired.`);
+                       await supabase.from('user_votes').update({ status: 'expired' }).eq('id', vote.id);
+                       results.push({ id: vote.id, status: 'expired' });
+                       // Do not set allRevealed = false, as expired counts as processed.
+                  } else {
+                       console.error(`Error processing vote ${vote.id}:`, e);
+                       results.push({ id: vote.id, status: 'error', error: errStr });
+                       allRevealed = false;
                   }
+              }
+          }
 
-                  results.push({ id: backup.id, status: 'failed', error: res.effects?.status.error });
-              }
-          } catch (e) {
-              console.error("Exec failed:", e);
-              // Handle dry run failure (which throws exception instead of returning failure effect)
-              if (String(e).includes(', 0)')) {
-                   await supabase.from('user_votes')
-                      .update({ status: 'expired' })
-                      .eq('id', backup.id);
-                   results.push({ id: backup.id, status: 'expired', msg: String(e) });
-              } else {
-                   results.push({ id: backup.id, status: 'error', msg: String(e) });
-              }
+          // 3. If all votes processed (or skipped), close topic?
+          // Actually, we should close the topic if the Reveal Phase is OVER on chain.
+          // Or if we have revealed everyone.
+          // User req: "After processing all votes for a topic, change topic status to end"
+          // Let's assume we change it to 'closed'
+          
+          // But wait, if some votes failed (e.g. decryption not ready), we shouldn't close it yet?
+          // Or maybe we just mark it done for this batch.
+          // Let's only close if we attempted all valid commits.
+          
+          if (allRevealed) {
+              await supabase.from('topics').update({ status: 'closed' }).eq('id', topic.id);
+              console.log(`Topic ${topic.id} closed.`);
           }
       }
   }

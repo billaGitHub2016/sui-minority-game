@@ -3,6 +3,7 @@
 
 import { createClient } from '@/utils/supabase/client'
 import MinorityGame from '@/components/MinorityGame'
+import LandingPage from '@/components/LandingPage'
 import { Button, Container, Flex, Heading, Text } from '@radix-ui/themes'
 import { ConnectButton, useCurrentAccount } from '@mysten/dapp-kit'
 import Link from 'next/link'
@@ -24,15 +25,7 @@ export default function Home() {
         {account ? (
             <MinorityGame />
         ) : (
-            <Flex direction="column" align="center" gap="4" py="9">
-                <Heading size="8">Welcome to the Minority Game</Heading>
-                <Text size="5" align="center">
-                    Vote on controversial topics. The minority wins.<br/>
-                    Powered by Sui Blockchain & AI.
-                </Text>
-                <Text size="3" color="gray">Connect your wallet to start playing.</Text>
-                <ConnectButton />
-            </Flex>
+            <LandingPage />
         )}
       </Flex>
     </Container>

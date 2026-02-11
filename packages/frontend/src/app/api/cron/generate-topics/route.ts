@@ -98,6 +98,10 @@ export async function GET() {
                  }
              });
 
+             await client.waitForTransaction({
+                digest: res.digest
+             });
+
              if (res.effects?.status.status === 'success') {
                  const createdObject = res.objectChanges?.find(
                      (change) => change.type === 'created' && change.objectType.includes(`${MODULE_NAME}::Poll`)

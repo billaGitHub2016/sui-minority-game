@@ -86,6 +86,7 @@ export async function GET() {
                               vote.salt, 
                               tlock.mainnetClient()
                           );
+                          console.log('Decrypted plaintext:', plaintext.toString());
                           const data = JSON.parse(plaintext.toString());
                           decryptedChoice = data.choice;
                           decryptedSalt = data.salt;
@@ -101,6 +102,9 @@ export async function GET() {
 
                   // Reveal on Chain
                   const tx = new Transaction();
+                  // Set gas budget for reveal transaction
+                  tx.setGasBudget(100_000_000); // 0.1 SUI
+                  
                   tx.moveCall({
                       target: `${currentPackageId}::${MODULE_NAME}::reveal_vote`,
                       arguments: [
@@ -116,6 +120,13 @@ export async function GET() {
                       transaction: tx,
                       options: { showEffects: true }
                   });
+                  console.log('Sign and execute transaction:', res);
+
+                  await client.waitForTransaction({
+                    digest: res.digest
+                  });
+
+                  console.log('Reveal vote tx:', res);
 
                   if (res.effects?.status.status === 'success' || String(res.effects?.status.error).includes('9')) {
                       // Update Vote Status
@@ -129,6 +140,7 @@ export async function GET() {
                   }
 
               } catch (e) {
+                  console.error(`Error processing vote ${vote.id}:`, e);
                   const errStr = String(e);
                   // Check for MoveAbort with error code 0 (E_POLL_ENDED)
                   // Matches formats like "MoveAbort(..., 0)" or "sub status 0"

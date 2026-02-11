@@ -19,16 +19,32 @@ export async function POST(request: Request) {
             const url = getFullnodeUrl(network as any); 
             const client = new SuiClient({ url });
             
-            const tx = await client.getTransactionBlock({
-                digest: tx_digest,
-                options: {
-                    showInput: true,
-                    showEffects: true
+            let tx;
+            let retryCount = 0;
+            const maxRetries = 5;
+            
+            while (retryCount < maxRetries) {
+                try {
+                    tx = await client.getTransactionBlock({
+                        digest: tx_digest,
+                        options: {
+                            showInput: true,
+                            showEffects: true
+                        }
+                    });
+                    break; // Found it
+                } catch (e: any) {
+                    // Check if error is "not found" related if possible, but for now retry on any error
+                    // or specifically looks for "Could not find the referenced transaction"
+                    console.log(`Transaction ${tx_digest} not found yet, retrying... (${retryCount + 1}/${maxRetries})`);
+                    retryCount++;
+                    if (retryCount === maxRetries) throw e;
+                    await new Promise(resolve => setTimeout(resolve, 1000));
                 }
-            });
+            }
 
-            const sender = tx.transaction?.data.sender;
-            const status = tx.effects?.status.status;
+            const sender = tx?.transaction?.data.sender;
+            const status = tx?.effects?.status.status;
 
             if (sender !== user_address) {
                  console.error(`Verification failed: sender ${sender} !== ${user_address}`);

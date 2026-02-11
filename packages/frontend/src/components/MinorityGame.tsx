@@ -187,22 +187,33 @@ export default function MinorityGame() {
          transaction: tx
      }, {
          onSuccess: async (result) => {
-             // 4. Backup ENCRYPTED Vote to Server
-            await fetch('/api/vote/backup', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    topic_id: topic.id,
-                    user_address: account.address,
-                    choice: "ENCRYPTED", // Hide choice
-                    salt: ciphertext, // Store ciphertext in salt field (hacky but works for MVP)
-                    tx_digest: result.digest,
-                    network: ctx.network,
-                })
-            });
-            
-            alert(`Vote Encrypted & Committed! It will be automatically decrypted and revealed after voting ends.`)
-             fetchTopics()
+             alert('Transaction submitted! Waiting for confirmation on chain...');
+             try {
+                 // Wait for transaction to be finalized
+                 await client.waitForTransaction({
+                     digest: result.digest
+                 });
+
+                 // 4. Backup ENCRYPTED Vote to Server
+                await fetch('/api/vote/backup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        topic_id: topic.id,
+                        user_address: account.address,
+                        choice: "ENCRYPTED", // Hide choice
+                        salt: ciphertext, // Store ciphertext in salt field (hacky but works for MVP)
+                        tx_digest: result.digest,
+                        network: ctx.network,
+                    })
+                });
+                
+                alert(`Vote Encrypted & Committed! It will be automatically decrypted and revealed after voting ends.`)
+                fetchTopics()
+             } catch (e) {
+                 console.error("Error waiting for transaction:", e);
+                 alert("Transaction submitted but verification failed. Please check explorer.");
+             }
          },
          onError: (err) => {
              console.error(err)

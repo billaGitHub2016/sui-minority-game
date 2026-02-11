@@ -12,7 +12,7 @@ const Header = () => {
   return (
     <header className="supports-backdrop-blur:bg-white/60 dark:border-slate-50/1 sticky top-0 z-40 flex w-full flex-row flex-wrap items-center justify-center gap-4 bg-white/95 px-3 py-3 backdrop-blur transition-colors duration-500 sm:justify-between sm:gap-3 lg:z-50 lg:border-b lg:border-slate-900/10 dark:bg-transparent">
       <Link
-        href="#"
+        href="/"
         className="flex flex-col items-center justify-center gap-1 text-sds-dark outline-none hover:no-underline sm:flex-row dark:text-sds-light"
       >
         <Image
@@ -26,6 +26,12 @@ const Header = () => {
       </Link>
 
       <div className="flex w-full flex-col items-center justify-center gap-3 sm:w-auto sm:flex-row">
+        <Link href="/game" className="text-sds-dark hover:text-blue-500 dark:text-sds-light">
+            Game
+        </Link>
+        <Link href="/dashboard" className="text-sds-dark hover:text-blue-500 dark:text-sds-light">
+            Dashboard
+        </Link>
         <div className="flex flex-row items-center justify-center gap-3">
           <Balance />
           <NetworkType />

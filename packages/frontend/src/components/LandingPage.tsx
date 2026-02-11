@@ -1,5 +1,5 @@
-import { Flex, Heading, Text, Card, Grid, Box, Badge, Separator } from '@radix-ui/themes'
-import { ConnectButton } from '@mysten/dapp-kit'
+import Link from 'next/link'
+import { Flex, Heading, Text, Card, Grid, Box, Badge, Separator, Button } from '@radix-ui/themes'
 import { Clock, Shield, Brain, Trophy, Coins, Users, Lock } from 'lucide-react'
 
 export default function LandingPage() {
@@ -16,7 +16,9 @@ export default function LandingPage() {
         </Text>
         
         <Flex gap="4" align="center" mt="4">
-           <ConnectButton />
+           <Link href="/game">
+             <Button size="4">Play Now</Button>
+           </Link>
         </Flex>
       </Flex>
 
@@ -109,7 +111,9 @@ export default function LandingPage() {
 
       <Flex direction="column" align="center" gap="2">
         <Text size="2" color="gray">Ready to test your luck and strategy?</Text>
-        <ConnectButton />
+        <Link href="/game">
+             <Button size="3">Get Started</Button>
+        </Link>
       </Flex>
     </Flex>
   )

@@ -1,3 +1,4 @@
+import { createClient } from '@/utils/supabase/client'
 import {
   Button,
   Card,
@@ -10,6 +11,7 @@ import {
   IconButton,
 } from '@radix-ui/themes'
 import { ExternalLinkIcon } from '@radix-ui/react-icons'
+import { useEffect, useState } from 'react'
 
 interface TopicCardProps {
   topic: any
@@ -34,10 +36,10 @@ export default function TopicCard({
   onClaim,
   onActivate,
 }: TopicCardProps) {
+  const supabase = createClient()
+  
   const onChainData = pollData[topic.id]
-  const createdAt = onChainData?.created_at
-    ? Number(onChainData.created_at)
-    : null
+  const createdAt = new Date(topic.created_at).getTime()
 
   let status = topic.status
   let timeRemaining = 0
@@ -54,6 +56,22 @@ export default function TopicCard({
       status = 'ended'
     }
   }
+
+  const [realtimeVotes, setRealtimeVotes] = useState<number | null>(null)
+  
+  useEffect(() => {
+    // Fetch vote count from user_votes table if status is voting
+    const fetchVoteCount = async () => {
+        if (status === 'voting') {
+            const { count } = await supabase
+                .from('user_votes')
+                .select('*', { count: 'exact', head: true })
+                .eq('topic_id', topic.id)
+            setRealtimeVotes(count)
+        }
+    }
+    fetchVoteCount()
+  }, [status, topic.id])
 
   // Determine Winner Logic for UI
   let userWon = false
@@ -277,18 +295,29 @@ export default function TopicCard({
               </>
             ) : (
               <>
-                <Text size="2" weight="bold">
-                  Secret Voting Phase
-                </Text>
+                <Flex justify="between" align="center">
+                  <Text size="2" weight="bold">
+                    Secret Voting Phase
+                  </Text>
+                  {/* Show current vote count if available */}
+                  {realtimeVotes !== null && (
+                     <Badge color="blue" variant="soft">
+                        {realtimeVotes} Votes
+                     </Badge>
+                  )}
+                </Flex>
+
                 {userVotes[topic.id] && <Badge color="green">Voted</Badge>}
                 <Grid columns="2" gap="2">
                   <Button
+                    style={{ height: 'auto', minHeight: '32px', whiteSpace: 'normal', padding: '8px' }}
                     disabled={userVotes[topic.id]}
                     onClick={() => onVote(topic, topic.option_a)}
                   >
                     {topic.option_a}
                   </Button>
                   <Button
+                    style={{ height: 'auto', minHeight: '32px', whiteSpace: 'normal', padding: '8px' }}
                     disabled={userVotes[topic.id]}
                     onClick={() => onVote(topic, topic.option_b)}
                   >

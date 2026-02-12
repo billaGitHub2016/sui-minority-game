@@ -29,22 +29,29 @@ export async function GET() {
     ]
   } else {
     try {
-        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+        const openai = new OpenAI({ 
+            apiKey: process.env.OPENAI_API_KEY,
+            baseURL: process.env.OPENAI_BASE_URL
+        })
         const { data: recentTopics } = await supabase.from('topics').select('title').order('created_at', { ascending: false }).limit(50)
         const existingTitles = recentTopics?.map(t => t.title).join('\n') || ''
 
         const completion = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
+          model: "deepseek-v3-aliyun",
           messages: [
-            { role: "system", content: "You are a creative game master for a 'Minority Game' where players vote on binary choices. The minority side wins. Generate 3 interesting, controversial, or fun binary choice topics suitable for a global audience (or Chinese New Year theme). Output as JSON object with a key 'topics' containing an array of objects: { title, option_a, option_b, description }." },
-            { role: "user", content: `Generate 3 new topics. Do not repeat these recent topics:\n${existingTitles}` }
+            { role: "system", content: "You are a creative game master for a 'Minority Game' where players vote on binary choices. The minority side wins. Generate 4 interesting, controversial, or fun binary choice topics suitable for a global audience. Ensure the topics are diverse and cover different categories such as Technology, Philosophy, Pop Culture, Daily Habits, or Social Dilemmas. Avoid repeating themes. Output as JSON object with a key 'topics' containing an array of objects: { title, option_a, option_b, description }." },
+            { role: "user", content: `Generate 4 new topics. Do not repeat these recent topics:\n${existingTitles}` }
           ],
           response_format: { type: "json_object" }
         });
+        console.log('completion = ', completion)
+        console.log('completion.choices[0].message.content = ', completion.choices[0].message.content)
 
         const content = completion.choices[0].message.content;
         if (!content) throw new Error("No content from OpenAI");
-        const result = JSON.parse(content);
+        // Sanitize content to remove markdown code blocks if present
+        const jsonContent = content.replace(/```json\n|\n```/g, '').trim();
+        const result = JSON.parse(jsonContent);
         if (Array.isArray(result.topics)) {
             generatedTopics = result.topics;
         }

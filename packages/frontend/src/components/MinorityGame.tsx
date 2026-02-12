@@ -50,13 +50,46 @@ export default function MinorityGame() {
     fetchTopics()
     if (account) fetchUserVotes()
     
-    const interval = setInterval(() => {
+    // Refresh data every minute
+    const dataInterval = setInterval(() => {
         fetchTopics()
         if (account) fetchUserVotes()
-        setCurrentTime(Date.now())
     }, 60000)
-    return () => clearInterval(interval)
+
+    // Update timer every 100ms for smoother millisecond display
+    const timerInterval = setInterval(() => {
+        setCurrentTime(Date.now())
+    }, 100)
+
+    return () => {
+        clearInterval(dataInterval)
+        clearInterval(timerInterval)
+    }
   }, [account]) // Refetch when account changes
+
+  // Helper to format remaining time
+  const formatTimeRemaining = (ms: number) => {
+    if (ms <= 0) return "00:00:00";
+    const minutes = Math.floor(ms / 60000);
+    const seconds = Math.floor((ms % 60000) / 1000);
+    const milliseconds = Math.floor((ms % 1000) / 10); // Show 2 digits
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(2, '0')}`;
+  }
+
+  // Calculate global time remaining (based on the first active voting topic found)
+  let globalTimeRemaining = null;
+  
+  const activeTopic = topics.find(t => {
+      // We rely on Supabase 'created_at' since on-chain data might lag or be missing initially
+      // And we filtered for 'active' status in fetchTopics.
+      const createdAt = new Date(t.created_at).getTime();
+      return currentTime < createdAt + POLL_DURATION;
+  });
+
+  if (activeTopic) {
+      const createdAt = new Date(activeTopic.created_at).getTime();
+      globalTimeRemaining = formatTimeRemaining((createdAt + POLL_DURATION) - currentTime);
+  }
 
   // Fetch user's vote history
   const fetchUserVotes = async () => {
@@ -84,7 +117,8 @@ export default function MinorityGame() {
           if (obj.data?.content?.dataType === 'moveObject') {
             setPollData((prev) => ({
               ...prev,
-              [topic.id]: obj.data.content.fields,
+              // @ts-ignore
+              [topic.id]: obj?.data?.content?.fields || {},
             }))
           }
         } catch (e) {
@@ -98,6 +132,7 @@ export default function MinorityGame() {
     const { data } = await supabase
       .from('topics')
       .select('*')
+      .eq('status', 'active') // Only fetch active topics
       .order('created_at', { ascending: false })
     setTopics(data || [])
     setLoading(false)
@@ -350,7 +385,19 @@ export default function MinorityGame() {
   return (
     <Flex direction="column" gap="4" width="100%">
       <Flex justify="between" align="center">
-        <Heading>Active Topics</Heading>
+        <Flex direction="column" gap="1">
+            <Flex gap="3" align="center">
+                <Heading>Active Topics</Heading>
+                {globalTimeRemaining && (
+                    <Text size="8" weight="bold" color="red" style={{ fontFamily: 'monospace', letterSpacing: '0.05em' }}>
+                        ⏱ {globalTimeRemaining}
+                    </Text>
+                )}
+            </Flex>
+            <Text size="2" color="blue" style={{ fontStyle: 'italic' }}>
+                Note: Votes are encrypted with Time-Lock. Even we can't read them until voting ends.
+            </Text>
+        </Flex>
         <Button onClick={generateTopics} variant="outline">
           Generate New Topics (AI)
         </Button>

@@ -39,7 +39,7 @@ export default function TopicCard({
     ? Number(onChainData.created_at)
     : null
 
-  let status = 'draft'
+  let status = topic.status
   let timeRemaining = 0
 
   if (createdAt) {
@@ -96,7 +96,7 @@ export default function TopicCard({
             {status.toUpperCase()}
           </Badge>
           <Text size="1" color="gray">
-            {new Date(topic.created_at).toLocaleDateString()}
+            Start at {new Date(topic.created_at).toLocaleString()}
           </Text>
         </Flex>
         <Flex align="center" gap="2">
@@ -295,10 +295,6 @@ export default function TopicCard({
                     {topic.option_b}
                   </Button>
                 </Grid>
-                <Text size="1" color="blue" style={{ fontStyle: 'italic' }}>
-                  Votes are encrypted with Time-Lock. Even we can't read them
-                  until voting ends.
-                </Text>
               </>
             )}
           </Flex>

@@ -147,6 +147,11 @@ module minority_game::minority_game {
         });
     }
 
+    public struct DebugEvent has copy, drop {
+        msg: String,
+        bytes: vector<u8>
+    }
+
     // Phase 2: Reveal Vote
     public entry fun reveal_vote(
         poll: &mut Poll,
@@ -177,6 +182,11 @@ module minority_game::minority_game {
 
         let choice_str = string::utf8(choice);
         
+        // Debugging Events
+        event::emit(DebugEvent { msg: string::utf8(b"Revealed Choice"), bytes: choice });
+        event::emit(DebugEvent { msg: string::utf8(b"Option A"), bytes: *string::bytes(&poll.option_a) });
+        event::emit(DebugEvent { msg: string::utf8(b"Option B"), bytes: *string::bytes(&poll.option_b) });
+
         // Update Counts
         if (choice_str == poll.option_a) {
             poll.count_a = poll.count_a + 1;

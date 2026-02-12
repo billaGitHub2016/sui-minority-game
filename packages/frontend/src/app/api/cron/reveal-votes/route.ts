@@ -118,15 +118,24 @@ export async function GET() {
                   const res = await client.signAndExecuteTransaction({
                       signer,
                       transaction: tx,
-                      options: { showEffects: true }
+                      options: { showEffects: true, showEvents: true }
                   });
                   console.log('Sign and execute transaction:', res);
 
                   await client.waitForTransaction({
-                    digest: res.digest
+                    digest: res.digest,
+                    options: { showEffects: true, showEvents: true }
                   });
 
-                  console.log('Reveal vote tx:', res);
+                  console.log('Reveal vote tx:', JSON.stringify(res, null, 2));
+
+                  // Check for RevealEvent
+                  const revealEvent = res.events?.find(e => e.type.includes('RevealEvent'));
+                  if (revealEvent) {
+                      console.log('RevealEvent Found:', revealEvent.parsedJson);
+                  } else {
+                      console.log('No RevealEvent found in transaction');
+                  }
 
                   if (res.effects?.status.status === 'success' || String(res.effects?.status.error).includes('9')) {
                       // Update Vote Status

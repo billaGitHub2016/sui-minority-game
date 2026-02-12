@@ -60,3 +60,5 @@ lerna-debug.log*
 
 # Arweave
 arweave-keyfile*
+
+.env

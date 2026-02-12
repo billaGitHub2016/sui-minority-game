@@ -97,7 +97,8 @@ export default function DashboardPage() {
           if (obj.data?.content?.dataType === 'moveObject') {
             setPollData((prev) => ({
               ...prev,
-              [topic.id]: obj.data.content.fields,
+              // @ts-ignore
+              [topic.id]: obj?.data?.content?.fields || {},
             }))
           }
         } catch (e) {

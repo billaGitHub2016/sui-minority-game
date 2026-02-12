@@ -13,6 +13,8 @@ import {
   Text,
   Heading,
   Grid,
+  Skeleton,
+  Card,
 } from '@radix-ui/themes'
 import { Transaction } from '@mysten/sui/transactions'
 import { isValidSuiObjectId } from '@mysten/sui/utils'
@@ -24,7 +26,7 @@ const PACKAGE_ID =
   '0x1aff31d8692f6e87404624eafbcd574eaac0c4752890b49e017d02a9e58101f7'
 const MODULE_NAME = 'minority_game'
 const STAKE_AMOUNT = 100_000_000 // 0.1 SUI
-const POLL_DURATION = 120 * 1000 // 2 minutes
+const POLL_DURATION = 600 * 1000 // 10 minutes
 const REVEAL_DURATION = 60 * 1000 // 1 minute
 
 // Drand Mainnet Chain Hash
@@ -88,7 +90,13 @@ export default function MinorityGame() {
 
   if (activeTopic) {
       const createdAt = new Date(activeTopic.created_at).getTime();
-      globalTimeRemaining = formatTimeRemaining((createdAt + POLL_DURATION) - currentTime);
+      const remaining = (createdAt + POLL_DURATION) - currentTime;
+      if (remaining > 0) {
+          globalTimeRemaining = formatTimeRemaining(remaining);
+      } else {
+          // If poll ended, don't show negative timer
+          globalTimeRemaining = "00:00:00"; 
+      }
   }
 
   // Fetch user's vote history
@@ -129,11 +137,18 @@ export default function MinorityGame() {
   }, [topics, client])
 
   const fetchTopics = async () => {
+    // Simulate a minimum loading time for better UX
+    const minLoadTime = new Promise(resolve => setTimeout(resolve, 800))
+
     const { data } = await supabase
       .from('topics')
       .select('*')
       .eq('status', 'active') // Only fetch active topics
       .order('created_at', { ascending: false })
+
+    // Wait for minimum load time
+    await minLoadTime
+
     setTopics(data || [])
     setLoading(false)
   }
@@ -380,8 +395,6 @@ export default function MinorityGame() {
     }
   }
 
-  if (loading) return <Text>Loading...</Text>
-
   return (
     <Flex direction="column" gap="4" width="100%">
       <Flex justify="between" align="center">
@@ -404,20 +417,33 @@ export default function MinorityGame() {
       </Flex>
 
       <Grid columns={{ initial: '1', md: '2' }} gap="4">
-        {topics.map((topic) => (
-          <TopicCard
-            key={topic.id}
-            topic={topic}
-            pollData={pollData}
-            userVotes={userVotes}
-            currentTime={currentTime}
-            POLL_DURATION={POLL_DURATION}
-            REVEAL_DURATION={REVEAL_DURATION}
-            onVote={commitVote}
-            onClaim={claimReward}
-            onActivate={createPollOnChain}
-          />
-        ))}
+        {loading ? (
+            [...Array(4)].map((_, i) => (
+                <Card key={i} className="tech-card" size="3">
+                    <Flex direction="column" gap="3">
+                        <Skeleton width="100%" height="24px" />
+                        <Skeleton width="80%" height="20px" />
+                        <Skeleton width="100%" height="16px" />
+                        <Skeleton width="100%" height="120px" />
+                    </Flex>
+                </Card>
+            ))
+        ) : (
+            topics.map((topic) => (
+            <TopicCard
+                key={topic.id}
+                topic={topic}
+                pollData={pollData}
+                userVotes={userVotes}
+                currentTime={currentTime}
+                POLL_DURATION={POLL_DURATION}
+                REVEAL_DURATION={REVEAL_DURATION}
+                onVote={commitVote}
+                onClaim={claimReward}
+                onActivate={createPollOnChain}
+            />
+            ))
+        )}
       </Grid>
     </Flex>
   )

@@ -9,8 +9,16 @@ import {
   Grid,
   Box,
   IconButton,
+  Avatar,
+  Tooltip,
 } from '@radix-ui/themes'
-import { ExternalLinkIcon } from '@radix-ui/react-icons'
+import { 
+  ExternalLinkIcon, 
+  CheckCircledIcon, 
+  CrossCircledIcon,
+  LockClosedIcon,
+  ClockIcon
+} from '@radix-ui/react-icons'
 import { useEffect, useState } from 'react'
 
 interface TopicCardProps {
@@ -39,7 +47,7 @@ export default function TopicCard({
   const supabase = createClient()
   
   const onChainData = pollData[topic.id]
-  const createdAt = new Date(topic.created_at).getTime()
+  const createdAt = topic.created_at ? new Date(topic.created_at).getTime() : null
 
   let status = topic.status
   let timeRemaining = 0
@@ -98,240 +106,265 @@ export default function TopicCard({
     }
   }
 
+  const getStatusBadge = () => {
+    switch (status) {
+      case 'voting':
+        return <Badge color="grass" variant="solid" className="tech-badge">LIVE VOTING</Badge>
+      case 'revealing':
+        return <Badge color="orange" variant="solid" className="tech-badge">REVEALING</Badge>
+      case 'ended':
+        return <Badge color="gray" variant="outline" className="tech-badge">ENDED</Badge>
+      default:
+        return <Badge color="gray" variant="soft" className="tech-badge">DRAFT</Badge>
+    }
+  }
+
   return (
-    <Card key={topic.id}>
-      <Flex direction="column" gap="3">
-        <Flex justify="between">
-          <Badge
-            color={
-              status === 'voting'
-                ? 'green'
-                : status === 'revealing'
-                  ? 'orange'
-                  : 'gray'
-            }
-          >
-            {status.toUpperCase()}
-          </Badge>
-          <Text size="1" color="gray">
-            Start at {new Date(topic.created_at).toLocaleString()}
-          </Text>
+    <Card className="tech-card" size="3">
+      <Flex direction="column" gap="4">
+        {/* Header */}
+        <Flex justify="between" align="center">
+          {getStatusBadge()}
+          <Flex align="center" gap="2">
+             <ClockIcon color="gray" />
+             <Text size="1" color="gray" style={{ fontFamily: 'monospace' }}>
+                {new Date(topic.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+             </Text>
+          </Flex>
         </Flex>
-        <Flex align="center" gap="2">
-          <Heading size="4">{topic.title}</Heading>
-          {topic.on_chain_id && (
-            <IconButton
-              size="1"
-              variant="ghost"
-              onClick={() =>
-                window.open(
-                  `https://suiscan.xyz/testnet/object/${topic.on_chain_id}`,
-                  '_blank'
-                )
-              }
-              style={{ cursor: 'pointer' }}
-            >
-              <ExternalLinkIcon width="16" height="16" />
-            </IconButton>
-          )}
-        </Flex>
-        <Text>{topic.description}</Text>
 
-        {topic.on_chain_id ? (
-          <Flex direction="column" gap="2">
-            {status === 'ended' ? (
-              <>
-                <Text size="2" weight="bold">
-                  Final Results:
-                </Text>
-
-                {/* Percentage Bar */}
-                <Flex
-                  width="100%"
-                  style={{
-                    height: '10px',
-                    borderRadius: '5px',
-                    overflow: 'hidden',
-                    backgroundColor: '#e0e0e0',
-                  }}
-                  my="2"
-                >
-                  {(() => {
-                    const countA = Number(onChainData?.count_a || 0)
-                    const countB = Number(onChainData?.count_b || 0)
-                    const total = countA + countB
-                    if (total === 0) return null
-
-                    const percentA = (countA / total) * 100
-                    const percentB = (countB / total) * 100
-
-                    // Determine colors: Minority is Green, Majority is Red
-                    // If countA < countB, A is Green.
-                    const colorA = countA < countB ? '#30A46C' : '#E54D2E' // Green : Red (Radix colors roughly)
-                    const colorB = countB < countA ? '#30A46C' : '#E54D2E'
-                    // If equal, both maybe orange or gray? Or just red (no winner). Let's stick to rule. Draw = refund.
-                    // If draw, both equal, let's use orange for both.
-                    const isDraw = countA === countB
-
-                    return (
-                      <>
-                        <Box
-                          style={{
-                            width: `${percentA}%`,
-                            backgroundColor: isDraw ? '#F76B15' : colorA,
-                            transition: 'width 0.5s',
-                          }}
-                        />
-                        <Box
-                          style={{
-                            width: `${percentB}%`,
-                            backgroundColor: isDraw ? '#F76B15' : colorB,
-                            transition: 'width 0.5s',
-                          }}
-                        />
-                      </>
-                    )
-                  })()}
-                </Flex>
-
-                <Flex justify="between">
-                  <Text
-                    color={
-                      Number(onChainData?.count_a) <
-                      Number(onChainData?.count_b)
-                        ? 'green'
-                        : 'red'
-                    }
-                  >
-                    {topic.option_a}: {onChainData?.count_a || 0}
-                  </Text>
-                  <Text
-                    color={
-                      Number(onChainData?.count_b) <
-                      Number(onChainData?.count_a)
-                        ? 'green'
-                        : 'red'
-                    }
-                  >
-                    {topic.option_b}: {onChainData?.count_b || 0}
-                  </Text>
-                </Flex>
-
-                {userChoice && (
-                  <Flex align="center" gap="2" mt="2">
-                    <Text size="2">
-                      Your Vote:{' '}
-                      <Text weight="bold">
-                        {userChoice === 'ENCRYPTED'
-                          ? 'Decrypting...'
-                          : userChoice}
-                      </Text>
-                    </Text>
-                    {userVotes[topic.id]?.tx_digest && (
-                      <IconButton
+        {/* Title & Description */}
+        <Flex direction="column" gap="2">
+            <Flex align="center" gap="2" justify="between">
+                <Heading size="5" weight="bold" style={{ color: 'var(--tech-text-primary)' }}>
+                    {topic.title}
+                </Heading>
+                {topic.on_chain_id && (
+                    <Tooltip content="View on Suiscan">
+                        <IconButton
                         size="1"
                         variant="ghost"
                         onClick={() =>
-                          window.open(
-                            `https://suiscan.xyz/testnet/tx/${userVotes[topic.id].tx_digest}`,
+                            window.open(
+                            `https://suiscan.xyz/testnet/object/${topic.on_chain_id}`,
                             '_blank'
-                          )
+                            )
                         }
-                        style={{ cursor: 'pointer' }}
-                        title="View Vote Transaction"
-                      >
-                        <ExternalLinkIcon width="14" height="14" />
-                      </IconButton>
-                    )}
-                  </Flex>
+                        style={{ cursor: 'pointer', color: 'var(--tech-text-secondary)' }}
+                        >
+                        <ExternalLinkIcon width="16" height="16" />
+                        </IconButton>
+                    </Tooltip>
                 )}
+            </Flex>
+            <Text size="2" style={{ color: 'var(--tech-text-secondary)' }}>
+                {topic.description}
+            </Text>
+        </Flex>
 
-                {userChoice && userChoice !== 'ENCRYPTED' ? (
-                  userWon ? (
-                    <Button
-                      color="gold"
-                      variant="soft"
-                      onClick={() => onClaim(topic)}
-                      mt="2"
-                    >
-                      {isDraw
-                        ? "It's a Draw! Claim Refund"
-                        : 'You Won! Claim Reward'}
-                    </Button>
-                  ) : (
-                    <Box
-                      mt="2"
-                      p="2"
-                      style={{
-                        backgroundColor: 'var(--gray-3)',
-                        borderRadius: 'var(--radius-2)',
-                      }}
-                    >
-                      <Text color="gray" size="2">
-                        Unfortunately, you are in the Majority. Better luck next
-                        time!
-                      </Text>
-                    </Box>
-                  )
-                ) : null}
-              </>
-            ) : status === 'revealing' ? (
-              <>
-                <Text size="2" weight="bold">
-                  Revealing Votes...
-                </Text>
-                <Text size="1">Decrypting via Drand Time-Lock...</Text>
-                <Flex justify="between">
-                  <Text>
-                    {topic.option_a}: {onChainData?.count_a || 0}
-                  </Text>
-                  <Text>
-                    {topic.option_b}: {onChainData?.count_b || 0}
-                  </Text>
+        {/* Action Area */}
+        <Box 
+            p="3" 
+            style={{ 
+                backgroundColor: 'rgba(255,255,255,0.03)', 
+                borderRadius: 'var(--radius-3)',
+                border: '1px solid var(--tech-border)'
+            }}
+        >
+            {topic.on_chain_id ? (
+                <Flex direction="column" gap="3">
+                    
+                    {/* Voting Phase UI */}
+                    {status === 'voting' && (
+                        <>
+                             <Flex justify="between" align="center" mb="1">
+                                <Flex align="center" gap="2">
+                                    <LockClosedIcon width="16" height="16" color="gray" />
+                                    <Text size="2" weight="bold" color="gray">Secret Ballot</Text>
+                                </Flex>
+                                {realtimeVotes !== null && (
+                                    <Badge color="grass" variant="soft" style={{ fontSize: '1.1em' }}>
+                                        <Text weight="bold">{realtimeVotes}</Text> Votes Cast
+                                    </Badge>
+                                )}
+                             </Flex>
+
+                             {userVotes[topic.id] ? (
+                                 <Flex 
+                                    align="center" 
+                                    justify="center" 
+                                    p="4" 
+                                    direction="column" 
+                                    gap="2"
+                                    style={{ 
+                                        backgroundColor: 'rgba(70, 167, 88, 0.1)', 
+                                        borderRadius: '8px',
+                                        border: '1px solid var(--tech-accent)'
+                                    }}
+                                 >
+                                    <CheckCircledIcon width="32" height="32" color="var(--tech-accent)" />
+                                    <Text weight="bold" color="grass">Vote Encrypted & Submitted</Text>
+                                    <Text size="1" color="gray">Waiting for reveal phase...</Text>
+                                 </Flex>
+                             ) : (
+                                <Grid columns="2" gap="3">
+                                    <Button
+                                        size="3"
+                                        variant="outline"
+                                        style={{ 
+                                            height: 'auto', 
+                                            padding: '16px', 
+                                            whiteSpace: 'normal',
+                                            borderColor: 'var(--tech-border)',
+                                            color: 'var(--tech-text-primary)'
+                                        }}
+                                        onClick={() => onVote(topic, topic.option_a)}
+                                        className="hover:bg-white/5 hover:border-green-500 transition-colors"
+                                    >
+                                        <Flex direction="column" align="center" gap="1">
+                                            <Text size="2" align="center">{topic.option_a}</Text>
+                                        </Flex>
+                                    </Button>
+                                    <Button
+                                        size="3"
+                                        variant="outline"
+                                        style={{ 
+                                            height: 'auto', 
+                                            padding: '16px', 
+                                            whiteSpace: 'normal',
+                                            borderColor: 'var(--tech-border)',
+                                            color: 'var(--tech-text-primary)'
+                                        }}
+                                        onClick={() => onVote(topic, topic.option_b)}
+                                        className="hover:bg-white/5 hover:border-green-500 transition-colors"
+                                    >
+                                        <Flex direction="column" align="center" gap="1">
+                                            <Text size="2" align="center">{topic.option_b}</Text>
+                                        </Flex>
+                                    </Button>
+                                </Grid>
+                             )}
+                        </>
+                    )}
+
+                    {/* Revealing Phase UI */}
+                    {status === 'revealing' && (
+                        <Flex direction="column" align="center" gap="2" py="4">
+                            <ClockIcon width="32" height="32" className="animate-pulse text-orange-500" />
+                            <Heading size="3" color="orange">Revealing Votes...</Heading>
+                            <Text size="2" color="gray">Decrypting via Drand Time-Lock</Text>
+                            <Text size="1" color="gray" style={{ fontFamily: 'monospace' }}>
+                                Ends in {Math.floor(timeRemaining / 1000)}s
+                            </Text>
+                        </Flex>
+                    )}
+
+                    {/* Ended Phase UI */}
+                    {status === 'ended' && (
+                        <Flex direction="column" gap="3">
+                            <Heading size="3">Final Results</Heading>
+                            
+                            {/* Stats Bar */}
+                            <Flex direction="column" gap="2">
+                                {/* Option A Bar */}
+                                <Flex align="center" gap="2">
+                                    <Box flexGrow="1" style={{ height: '24px', backgroundColor: '#222', borderRadius: '4px', overflow: 'hidden', position: 'relative' }}>
+                                        <Box 
+                                            style={{ 
+                                                width: `${(Number(onChainData?.count_a || 0) / (Number(onChainData?.count_a || 0) + Number(onChainData?.count_b || 0) || 1)) * 100}%`,
+                                                height: '100%',
+                                                backgroundColor: Number(onChainData?.count_a) < Number(onChainData?.count_b) ? 'var(--tech-accent)' : '#EF4444',
+                                                transition: 'width 1s ease-out'
+                                            }} 
+                                        />
+                                        <Text 
+                                            size="1" 
+                                            weight="bold" 
+                                            style={{ 
+                                                position: 'absolute', 
+                                                left: '8px', 
+                                                top: '50%', 
+                                                transform: 'translateY(-50%)', 
+                                                color: 'white',
+                                                textShadow: '0 1px 2px black'
+                                            }}
+                                        >
+                                            {topic.option_a} ({onChainData?.count_a || 0})
+                                        </Text>
+                                    </Box>
+                                </Flex>
+
+                                {/* Option B Bar */}
+                                <Flex align="center" gap="2">
+                                    <Box flexGrow="1" style={{ height: '24px', backgroundColor: '#222', borderRadius: '4px', overflow: 'hidden', position: 'relative' }}>
+                                        <Box 
+                                            style={{ 
+                                                width: `${(Number(onChainData?.count_b || 0) / (Number(onChainData?.count_a || 0) + Number(onChainData?.count_b || 0) || 1)) * 100}%`,
+                                                height: '100%',
+                                                backgroundColor: Number(onChainData?.count_b) < Number(onChainData?.count_a) ? 'var(--tech-accent)' : '#EF4444',
+                                                transition: 'width 1s ease-out'
+                                            }} 
+                                        />
+                                        <Text 
+                                            size="1" 
+                                            weight="bold" 
+                                            style={{ 
+                                                position: 'absolute', 
+                                                left: '8px', 
+                                                top: '50%', 
+                                                transform: 'translateY(-50%)', 
+                                                color: 'white',
+                                                textShadow: '0 1px 2px black'
+                                            }}
+                                        >
+                                            {topic.option_b} ({onChainData?.count_b || 0})
+                                        </Text>
+                                    </Box>
+                                </Flex>
+                            </Flex>
+
+                            {/* User Outcome */}
+                            {userChoice && userChoice !== 'ENCRYPTED' && (
+                                <Box mt="2">
+                                    {userWon ? (
+                                        <Button 
+                                            color="gold" 
+                                            size="3" 
+                                            variant="soft" 
+                                            style={{ width: '100%', fontWeight: 'bold' }}
+                                            onClick={() => onClaim(topic)}
+                                        >
+                                            🏆 {isDraw ? "It's a Draw! Refund" : "You Won! Claim Reward"}
+                                        </Button>
+                                    ) : (
+                                        <Flex 
+                                            justify="center" 
+                                            align="center" 
+                                            p="2" 
+                                            style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: '8px', border: '1px solid #EF4444' }}
+                                        >
+                                            <CrossCircledIcon color="red" className="mr-2" />
+                                            <Text color="red">You joined the Majority. Better luck next time.</Text>
+                                        </Flex>
+                                    )}
+                                </Box>
+                            )}
+                        </Flex>
+                    )}
+
                 </Flex>
-                <Text size="1" color="gray">
-                  Ends in {Math.floor(timeRemaining / 1000)}s
-                </Text>
-              </>
             ) : (
-              <>
-                <Flex justify="between" align="center">
-                  <Text size="2" weight="bold">
-                    Secret Voting Phase
-                  </Text>
-                  {/* Show current vote count if available */}
-                  {realtimeVotes !== null && (
-                     <Badge color="blue" variant="soft">
-                        {realtimeVotes} Votes
-                     </Badge>
-                  )}
-                </Flex>
-
-                {userVotes[topic.id] && <Badge color="green">Voted</Badge>}
-                <Grid columns="2" gap="2">
-                  <Button
-                    style={{ height: 'auto', minHeight: '32px', whiteSpace: 'normal', padding: '8px' }}
-                    disabled={userVotes[topic.id]}
-                    onClick={() => onVote(topic, topic.option_a)}
-                  >
-                    {topic.option_a}
-                  </Button>
-                  <Button
-                    style={{ height: 'auto', minHeight: '32px', whiteSpace: 'normal', padding: '8px' }}
-                    disabled={userVotes[topic.id]}
-                    onClick={() => onVote(topic, topic.option_b)}
-                  >
-                    {topic.option_b}
-                  </Button>
-                </Grid>
-              </>
+                <Button 
+                    size="3" 
+                    color="orange" 
+                    variant="soft" 
+                    style={{ width: '100%' }} 
+                    onClick={() => onActivate(topic)}
+                >
+                    🚀 Activate On-Chain
+                </Button>
             )}
-          </Flex>
-        ) : (
-          <Button color="orange" onClick={() => onActivate(topic)}>
-            Activate On-Chain
-          </Button>
-        )}
+        </Box>
       </Flex>
     </Card>
   )

@@ -7,7 +7,7 @@
     "dev": "next dev --webpack",
     "build": "next build --webpack",
     "start": "next start",
-    "preview": "next start",
+    "preview": "next start --port 3002",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "format": "prettier --write './src/**/*.{js,jsx,ts,tsx}'",
     "deploy:firebase:init": "firebase login && firebase use --add",

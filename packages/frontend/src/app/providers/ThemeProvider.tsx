@@ -3,7 +3,13 @@ import { FC, PropsWithChildren } from 'react'
 
 const ThemeProvider: FC<PropsWithChildren> = ({ children }) => {
   return (
-    <Theme className="w-full bg-sds-light text-sds-dark dark:bg-sds-dark dark:text-sds-light">
+    <Theme 
+      appearance="dark" 
+      accentColor="grass" 
+      grayColor="slate" 
+      radius="medium"
+      className="w-full bg-black text-white"
+    >
       {children}
     </Theme>
   )

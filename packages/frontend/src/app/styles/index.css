@@ -3,13 +3,18 @@
 @tailwind utilities;
 
 :root {
-  --sds-light: #ffffffde;
-  --sds-dark: #011631;
-  --sds-pink: #fed5f4;
-  --sds-blue: #4da2ff;
+  /* Tech Theme Variables */
+  --tech-bg: #050505;
+  --tech-card-bg: #111111;
+  --tech-border: #333333;
+  --tech-accent: #46A758; /* Radix Grass-9 approx */
+  --tech-accent-glow: rgba(70, 167, 88, 0.5);
+  --tech-text-primary: #EDEDED;
+  --tech-text-secondary: #A1A1AA;
+  
   --sds-font-inter: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
 
-  color-scheme: light dark;
+  color-scheme: dark;
 
   font-family: var(--sds-font-inter);
   font-synthesis: none;
@@ -21,17 +26,97 @@
 body, #root {
   display: flex;
   flex-direction: column;
-  justify-content:center;
-  align-items:center;
   min-width: 100%;
   min-height: 100vh;
+  background-color: var(--tech-bg);
+  color: var(--tech-text-primary);
 }
 
+/* Custom Tech Card Style */
+.tech-card {
+  background-color: var(--tech-card-bg) !important;
+  border: 1px solid var(--tech-border) !important;
+  transition: all 0.3s ease;
+}
+
+.tech-card:hover {
+  border-color: var(--tech-accent);
+  box-shadow: 0 0 15px var(--tech-accent-glow);
+}
+
+.tech-badge {
+  font-family: monospace;
+  letter-spacing: 0.05em;
+}
+
+/* Hero Glow Animation */
+@keyframes hero-pulse {
+  0% { box-shadow: 0 0 20px rgba(70, 167, 88, 0.1); }
+  50% { box-shadow: 0 0 40px rgba(70, 167, 88, 0.3); }
+  100% { box-shadow: 0 0 20px rgba(70, 167, 88, 0.1); }
+}
+
+@keyframes pulse-scale {
+  0% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
+  50% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.8; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
+}
+
+/* Moving Grid Animation */
+@keyframes grid-move {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(40px); }
+}
+
+.tech-grid-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  z-index: -1;
+  opacity: 0.3;
+  pointer-events: none;
+  background-image: 
+    linear-gradient(rgba(70, 167, 88, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(70, 167, 88, 0.1) 1px, transparent 1px);
+  background-size: 40px 40px;
+  animation: grid-move 3s linear infinite;
+  mask-image: radial-gradient(circle at center, black 0%, transparent 80%);
+  -webkit-mask-image: radial-gradient(circle at center, black 0%, transparent 80%);
+}
+
+.tech-hero-button {
+  background-color: var(--tech-accent) !important;
+  color: black !important;
+  font-weight: bold !important;
+  transition: all 0.3s ease !important;
+}
+
+.tech-hero-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 20px var(--tech-accent-glow) !important;
+}
+
+.tech-grid-card {
+  background: linear-gradient(145deg, var(--tech-card-bg), #1a1a1a);
+  border: 1px solid var(--tech-border);
+  transition: all 0.3s ease;
+}
+
+.tech-grid-card:hover {
+  border-color: var(--tech-accent);
+  transform: translateY(-4px);
+}
 /* Custom styles where it's not possible to use Tailwind classes. */
 .sds-connect-button-container {
   button {
     padding: 8px 16px !important;
     border-radius: 8px !important;
+    background-color: var(--tech-accent) !important;
+    color: black !important;
+    font-weight: bold !important;
   }
   div {
     font-size: 16px !important;

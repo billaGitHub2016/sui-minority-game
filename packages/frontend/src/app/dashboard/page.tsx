@@ -16,6 +16,7 @@ import {
   Box,
   TextField,
   Card,
+  Skeleton,
 } from '@radix-ui/themes'
 import { Transaction } from '@mysten/sui/transactions'
 import { isValidSuiObjectId } from '@mysten/sui/utils'
@@ -28,36 +29,43 @@ const PACKAGE_ID =
 const MODULE_NAME = 'minority_game'
 const POLL_DURATION = 120 * 1000 // 2 minutes
 const REVEAL_DURATION = 60 * 1000 // 1 minute
-const ITEMS_PER_PAGE = 5
+const ITEMS_PER_PAGE = 4
 
 export default function DashboardPage() {
   const supabase = createClient()
   const account = useCurrentAccount()
   const client = useSuiClient()
   const { mutate: signAndExecute } = useSignAndExecuteTransaction()
+  
+  // Data State
   const [topics, setTopics] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [pollData, setPollData] = useState<Record<string, any>>({})
   const [userVotes, setUserVotes] = useState<Record<string, any>>({})
   const [currentTime, setCurrentTime] = useState(Date.now())
+  const [totalCount, setTotalCount] = useState(0)
 
   // Filter & Pagination State
-  const [searchQuery, setSearchQuery] = useState('')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
-  const [page, setPage] = useState(1)
+  const [filters, setFilters] = useState({
+    searchQuery: '',
+    dateFrom: '',
+    dateTo: '',
+    page: 1,
+    activeTab: 'my-votes'
+  })
 
   useEffect(() => {
     fetchTopics()
     if (account) fetchUserVotes()
+  }, [account, filters]) // Refetch when filters change
 
+  useEffect(() => {
     const interval = setInterval(() => {
-      fetchTopics()
-      if (account) fetchUserVotes()
-      setCurrentTime(Date.now())
-    }, 60000)
+        // Only refresh time for countdowns, don't refetch data automatically
+        setCurrentTime(Date.now())
+    }, 1000) // Update time every second for smooth countdowns
     return () => clearInterval(interval)
-  }, [account])
+  }, [])
 
   const fetchUserVotes = async () => {
     if (!account) return
@@ -78,11 +86,75 @@ export default function DashboardPage() {
   }
 
   const fetchTopics = async () => {
-    const { data } = await supabase
+    setLoading(true)
+    
+    // Simulate a minimum loading time for better UX
+    const minLoadTime = new Promise(resolve => setTimeout(resolve, 800))
+    
+    let query = supabase
       .from('topics')
-      .select('*')
+      .select('*', { count: 'exact' })
       .order('created_at', { ascending: false })
+
+    // Apply Search
+    if (filters.searchQuery) {
+        query = query.ilike('title', `%${filters.searchQuery}%`)
+    }
+
+    // Apply Date Range
+    if (filters.dateFrom) {
+        query = query.gte('created_at', new Date(filters.dateFrom).toISOString())
+    }
+    if (filters.dateTo) {
+        const nextDay = new Date(filters.dateTo)
+        nextDay.setDate(nextDay.getDate() + 1)
+        query = query.lt('created_at', nextDay.toISOString())
+    }
+
+    // Apply Tab Filter (Join logic needed for 'my-votes' is complex in simple query, 
+    // for MVP we might fetch IDs first or handle 'my-votes' differently.
+    // However, Supabase doesn't support easy semi-join in JS client without foreign keys setup perfectly.
+    // For 'my-votes', let's filter client side if the dataset is small, OR 
+    // better: fetch user votes first, get topic IDs, then fetch those topics.)
+    
+    if (filters.activeTab === 'my-votes') {
+        if (!account) {
+            setTopics([])
+            setTotalCount(0)
+            setLoading(false)
+            return
+        }
+        // Fetch topic IDs user voted on
+        const { data: voteData } = await supabase
+            .from('user_votes')
+            .select('topic_id')
+            .eq('user_address', account.address)
+        
+        const votedTopicIds = voteData?.map(v => v.topic_id) || []
+        
+        if (votedTopicIds.length === 0) {
+            setTopics([])
+            setTotalCount(0)
+            setLoading(false)
+            return
+        }
+        query = query.in('id', votedTopicIds)
+    } else if (filters.activeTab === 'ended-topics') {
+        query = query.eq('status', 'ended') // Assuming status is updated in DB
+    }
+
+    // Apply Pagination
+    const from = (filters.page - 1) * ITEMS_PER_PAGE
+    const to = from + ITEMS_PER_PAGE - 1
+    query = query.range(from, to)
+
+    const { data, count } = await query
+    
+    // Wait for both the query and the minimum load time
+    await minLoadTime
+    
     setTopics(data || [])
+    setTotalCount(count || 0)
     setLoading(false)
   }
 
@@ -203,167 +275,160 @@ export default function DashboardPage() {
     })
   }
 
-  // Filtered Lists
-  const myVoteTopics = topics.filter((t) => userVotes[t.id])
-  const endedTopics = topics.filter((t) => getStatus(t) === 'ended')
+  // No need for client-side filtering now
+  // const myVoteTopics = topics.filter((t) => userVotes[t.id])
+  // const endedTopics = topics.filter((t) => getStatus(t) === 'ended')
+  // const filteredMyVotes = filterTopics(myVoteTopics)
+  // const filteredEndedTopics = filterTopics(endedTopics)
 
-  // Apply filters and pagination based on Active Tab?
-  // Since we render both tabs, we can prepare filtered lists for both.
-  const filteredMyVotes = filterTopics(myVoteTopics)
-  const filteredEndedTopics = filterTopics(endedTopics)
-
-  // Pagination Helper
-  const getPaginated = (list: any[]) => {
-    const start = (page - 1) * ITEMS_PER_PAGE
-    const end = start + ITEMS_PER_PAGE
-    return list.slice(start, end)
+  const handleTabChange = (val: string) => {
+    if (val === filters.activeTab) return;
+    setTopics([]) // Clear current topics to show loading state immediately
+    setFilters(prev => ({
+        ...prev,
+        activeTab: val,
+        page: 1
+    }))
   }
-
-  const handleTabChange = () => {
-    setPage(1) // Reset page on tab switch
-  }
-
-  if (loading) return <Text>Loading...</Text>
 
   return (
-    <Flex direction="column" gap="4" width="100%" p="4">
-      <Heading>Dashboard</Heading>
+    <Flex direction="column" gap="4" width="100%" p="4" align="center">
+      <Box style={{ width: '100%', maxWidth: '1200px' }}>
+        <Heading mb="4">Dashboard</Heading>
 
-      {/* Filters */}
-      <Card>
-        <Flex gap="4" wrap="wrap" align="end">
-          <Box flexGrow="1">
-            <Text as="div" size="2" mb="1" weight="bold">
-              Search Topics
-            </Text>
-            <TextField.Root
-              placeholder="Search by title..."
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value)
-                setPage(1)
-              }}
+        {/* Filters */}
+        <Card className="tech-card" style={{ marginBottom: '20px' }}>
+            <Flex gap="4" wrap="wrap" align="end">
+            <Box flexGrow="1">
+                <Text as="div" size="2" mb="1" weight="bold" color="gray">
+                Search Topics
+                </Text>
+                <TextField.Root
+                placeholder="Search by title..."
+                value={filters.searchQuery}
+                onChange={(e) => {
+                    setFilters(prev => ({ ...prev, searchQuery: e.target.value, page: 1 }))
+                }}
+                variant="soft"
+                >
+                <TextField.Slot>
+                    <Search size={16} />
+                </TextField.Slot>
+                </TextField.Root>
+            </Box>
+            <Box>
+                <Text as="div" size="2" mb="1" weight="bold" color="gray">
+                From Date
+                </Text>
+                <TextField.Root
+                type="date"
+                value={filters.dateFrom}
+                onChange={(e) => {
+                    setFilters(prev => ({ ...prev, dateFrom: e.target.value, page: 1 }))
+                }}
+                variant="soft"
+                />
+            </Box>
+            <Box>
+                <Text as="div" size="2" mb="1" weight="bold" color="gray">
+                To Date
+                </Text>
+                <TextField.Root
+                type="date"
+                value={filters.dateTo}
+                onChange={(e) => {
+                    setFilters(prev => ({ ...prev, dateTo: e.target.value, page: 1 }))
+                }}
+                variant="soft"
+                />
+            </Box>
+            <Button
+                variant="solid"
+                color="grass"
+                onClick={() => {
+                    fetchTopics()
+                    if (account) fetchUserVotes()
+                }}
+                style={{ cursor: 'pointer' }}
             >
-              <TextField.Slot>
-                <Search size={16} />
-              </TextField.Slot>
-            </TextField.Root>
-          </Box>
-          <Box>
-            <Text as="div" size="2" mb="1" weight="bold">
-              From Date
-            </Text>
-            <TextField.Root
-              type="date"
-              value={dateFrom}
-              onChange={(e) => {
-                setDateFrom(e.target.value)
-                setPage(1)
-              }}
-            />
-          </Box>
-          <Box>
-            <Text as="div" size="2" mb="1" weight="bold">
-              To Date
-            </Text>
-            <TextField.Root
-              type="date"
-              value={dateTo}
-              onChange={(e) => {
-                setDateTo(e.target.value)
-                setPage(1)
-              }}
-            />
-          </Box>
-          <Button
-            variant="soft"
-            color="gray"
-            onClick={() => {
-              setSearchQuery('')
-              setDateFrom('')
-              setDateTo('')
-              setPage(1)
-            }}
-          >
-            Clear
-          </Button>
-        </Flex>
-      </Card>
+                Search
+            </Button>
+            <Button
+                variant="soft"
+                color="gray"
+                onClick={() => {
+                setFilters(prev => ({
+                    ...prev,
+                    searchQuery: '',
+                    dateFrom: '',
+                    dateTo: '',
+                    page: 1
+                }))
+                }}
+                style={{ cursor: 'pointer' }}
+            >
+                Clear
+            </Button>
+            </Flex>
+        </Card>
 
-      <Tabs.Root defaultValue="my-votes" onValueChange={handleTabChange}>
-        <Tabs.List>
-          <Tabs.Trigger value="my-votes">
-            My Votes ({filteredMyVotes.length})
-          </Tabs.Trigger>
-          <Tabs.Trigger value="ended-topics">
-            Ended Topics ({filteredEndedTopics.length})
-          </Tabs.Trigger>
-        </Tabs.List>
+        <Tabs.Root value={filters.activeTab} onValueChange={handleTabChange}>
+            <Tabs.List>
+            <Tabs.Trigger value="my-votes" style={{ cursor: 'pointer' }}>
+                My Votes
+            </Tabs.Trigger>
+            <Tabs.Trigger value="ended-topics" style={{ cursor: 'pointer' }}>
+                Ended Topics
+            </Tabs.Trigger>
+            </Tabs.List>
 
-        <Box pt="3">
-          <Tabs.Content value="my-votes">
-            {!account ? (
-              <Text>Please connect your wallet to view your votes.</Text>
-            ) : filteredMyVotes.length === 0 ? (
-              <Text>No votes found matching your criteria.</Text>
-            ) : (
-              <>
-                <Grid columns={{ initial: '1', md: '2' }} gap="4">
-                  {getPaginated(filteredMyVotes).map((topic) => (
-                    <TopicCard
-                      key={topic.id}
-                      topic={topic}
-                      pollData={pollData}
-                      userVotes={userVotes}
-                      currentTime={currentTime}
-                      POLL_DURATION={POLL_DURATION}
-                      REVEAL_DURATION={REVEAL_DURATION}
-                      onVote={() => {}}
-                      onClaim={claimReward}
-                      onActivate={() => {}}
-                    />
-                  ))}
-                </Grid>
-                <PaginationControl
-                  totalItems={filteredMyVotes.length}
-                  page={page}
-                  setPage={setPage}
-                />
-              </>
-            )}
-          </Tabs.Content>
-
-          <Tabs.Content value="ended-topics">
-            {filteredEndedTopics.length === 0 ? (
-              <Text>No ended topics found matching your criteria.</Text>
-            ) : (
-              <>
-                <Grid columns={{ initial: '1', md: '2' }} gap="4">
-                  {getPaginated(filteredEndedTopics).map((topic) => (
-                    <TopicCard
-                      key={topic.id}
-                      topic={topic}
-                      pollData={pollData}
-                      userVotes={userVotes}
-                      currentTime={currentTime}
-                      POLL_DURATION={POLL_DURATION}
-                      REVEAL_DURATION={REVEAL_DURATION}
-                      onVote={() => {}}
-                      onClaim={claimReward}
-                      onActivate={() => {}}
-                    />
-                  ))}
-                </Grid>
-                <PaginationControl
-                  totalItems={filteredEndedTopics.length}
-                  page={page}
-                  setPage={setPage}
-                />
-              </>
-            )}
-          </Tabs.Content>
-        </Box>
-      </Tabs.Root>
+            <Box pt="4">
+                {loading ? (
+                    <Grid columns={{ initial: '1', md: '2' }} gap="4">
+                        {[...Array(4)].map((_, i) => (
+                            <Card key={i} className="tech-card" size="3">
+                                <Flex direction="column" gap="3">
+                                    <Skeleton width="100px" height="20px" />
+                                    <Skeleton width="80%" height="24px" />
+                                    <Skeleton width="100%" height="16px" />
+                                    <Skeleton width="100%" height="100px" />
+                                </Flex>
+                            </Card>
+                        ))}
+                    </Grid>
+                ) : topics.length === 0 ? (
+                    <Flex justify="center" p="9" direction="column" align="center" gap="2">
+                        <Text size="4" weight="bold">No topics found.</Text>
+                        <Text color="gray">Try adjusting your filters or voting on some topics!</Text>
+                    </Flex>
+                ) : (
+                    <>
+                        <Grid columns={{ initial: '1', md: '2' }} gap="4">
+                            {topics.map((topic) => (
+                                <TopicCard
+                                key={topic.id}
+                                topic={topic}
+                                pollData={pollData}
+                                userVotes={userVotes}
+                                currentTime={currentTime}
+                                POLL_DURATION={POLL_DURATION}
+                                REVEAL_DURATION={REVEAL_DURATION}
+                                onVote={() => {}}
+                                onClaim={claimReward}
+                                onActivate={() => {}}
+                                />
+                            ))}
+                        </Grid>
+                        <PaginationControl
+                            totalItems={totalCount}
+                            page={filters.page}
+                            setPage={(p) => setFilters(prev => ({ ...prev, page: p }))}
+                        />
+                    </>
+                )}
+            </Box>
+        </Tabs.Root>
+      </Box>
     </Flex>
   )
 }

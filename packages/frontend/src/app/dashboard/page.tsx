@@ -250,37 +250,6 @@ export default function DashboardPage() {
     return 'draft'
   }
 
-  // Generic Filter Function
-  const filterTopics = (list: any[]) => {
-    return list.filter((topic) => {
-      // Search Query
-      const matchesSearch = topic.title
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase())
-
-      // Date Range
-      const topicDate = new Date(topic.created_at).getTime()
-      let matchesDate = true
-      if (dateFrom) {
-        matchesDate = matchesDate && topicDate >= new Date(dateFrom).getTime()
-      }
-      if (dateTo) {
-        // Add 1 day to include the end date fully (end of day)
-        const nextDay = new Date(dateTo)
-        nextDay.setDate(nextDay.getDate() + 1)
-        matchesDate = matchesDate && topicDate < nextDay.getTime()
-      }
-
-      return matchesSearch && matchesDate
-    })
-  }
-
-  // No need for client-side filtering now
-  // const myVoteTopics = topics.filter((t) => userVotes[t.id])
-  // const endedTopics = topics.filter((t) => getStatus(t) === 'ended')
-  // const filteredMyVotes = filterTopics(myVoteTopics)
-  // const filteredEndedTopics = filterTopics(endedTopics)
-
   const handleTabChange = (val: string) => {
     if (val === filters.activeTab) return;
     setTopics([]) // Clear current topics to show loading state immediately

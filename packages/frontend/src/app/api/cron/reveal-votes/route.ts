@@ -10,17 +10,20 @@ import * as tlock from 'tlock-js'
 const PACKAGE_ID = process.env.NEXT_PUBLIC_PACKAGE_ID;
 const MODULE_NAME = 'minority_game';
 const ADMIN_SECRET_KEY = process.env.ADMIN_SECRET_KEY;
+const ADMIN_CAP_ID = process.env.ADMIN_CAP_ID;
 const POLL_DURATION = 120 * 1000; // 2 mins
 
 export async function GET() {
   // Reload env vars at runtime to support standalone script execution
   const currentPackageId = PACKAGE_ID || process.env.NEXT_PUBLIC_PACKAGE_ID;
   const currentAdminKey = ADMIN_SECRET_KEY || process.env.ADMIN_SECRET_KEY;
+  const currentAdminCapId = ADMIN_CAP_ID || process.env.ADMIN_CAP_ID;
 
-  if (!currentAdminKey || !currentPackageId) {
+  if (!currentAdminKey || !currentPackageId || !currentAdminCapId) {
       console.error("Config Check Failed:", { 
           hasAdminKey: !!currentAdminKey, 
           hasPackageId: !!currentPackageId,
+          hasAdminCapId: !!currentAdminCapId,
           envPackageId: process.env.NEXT_PUBLIC_PACKAGE_ID 
       });
       return NextResponse.json({ error: 'Config missing' }, { status: 500 })
@@ -108,8 +111,10 @@ export async function GET() {
                   tx.moveCall({
                       target: `${currentPackageId}::${MODULE_NAME}::reveal_vote`,
                       arguments: [
+                          tx.object(currentAdminCapId), // AdminCap
                           tx.object(topic.on_chain_id),
-                          tx.pure.vector('u8', Buffer.from(decryptedChoice, 'utf8')),
+                          tx.pure.address(vote.user_address),
+                          tx.pure.vector('u8', new TextEncoder().encode(decryptedChoice)),
                           tx.pure.vector('u8', Buffer.from(decryptedSalt, 'hex')),
                           tx.object('0x6')
                       ]

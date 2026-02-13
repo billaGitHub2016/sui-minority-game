@@ -154,22 +154,23 @@ module minority_game::minority_game {
 
     // Phase 2: Reveal Vote
     public entry fun reveal_vote(
+        _: &AdminCap, // Require Admin Capability
         poll: &mut Poll,
+        voter: address,
         choice: vector<u8>,
         salt: vector<u8>,
         clock: &Clock,
-        ctx: &mut TxContext
+        _ctx: &mut TxContext
     ) {
-        // Check if in Reveal Phase (Voting Ended < Now < Reveal Ended)
+        // Check if in Reveal Phase (Voting Ended < Now)
         let now = clock::timestamp_ms(clock);
         assert!(now >= poll.created_at + DURATION, E_INVALID_PHASE); 
-        // Allow reveal only during Reveal Phase
-        assert!(now < poll.created_at + DURATION + REVEAL_DURATION, E_POLL_ENDED);
+        // 24 hours (24 * 60 * 60 * 1000 ms) reveal window
+        assert!(now < poll.created_at + DURATION + (24 * 60 * 60 * 1000), E_POLL_ENDED);
 
-        let sender = tx_context::sender(ctx);
-        assert!(table::contains(&poll.votes, sender), E_NOT_VOTED);
+        assert!(table::contains(&poll.votes, voter), E_NOT_VOTED);
 
-        let commit = table::borrow_mut(&mut poll.votes, sender);
+        let commit = table::borrow_mut(&mut poll.votes, voter);
         assert!(!commit.revealed, E_ALREADY_REVEALED);
 
         // Verify Hash: hash(choice + salt) == commit.vote_hash
@@ -199,9 +200,45 @@ module minority_game::minority_game {
 
         event::emit(RevealEvent {
             poll_id: object::uid_to_inner(&poll.id),
-            voter: sender,
+            voter: voter,
             choice: choice_str
         });
+    }
+
+    // Allow withdrawing stake if only 1 person voted OR if reveal phase timed out (24h) and not revealed
+    public entry fun withdraw_stake(
+        poll: &mut Poll,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        let sender = tx_context::sender(ctx);
+        assert!(table::contains(&poll.votes, sender), E_NOT_VOTED);
+        assert!(!table::contains(&poll.claimed, sender), E_ALREADY_CLAIMED);
+
+        let now = clock::timestamp_ms(clock);
+        // Can withdraw if:
+        // 1. Voting ended AND Total votes == 1
+        // 2. Reveal window (24h) passed AND vote not revealed
+        
+        let voting_ended = now >= poll.created_at + DURATION;
+        assert!(voting_ended, E_INVALID_PHASE);
+
+        let is_only_voter = poll.total_votes == 1;
+        let reveal_window_passed = now >= poll.created_at + DURATION + (24 * 60 * 60 * 1000);
+        
+        let commit = table::borrow(&poll.votes, sender);
+        let not_revealed = !commit.revealed;
+
+        // Condition: (Only 1 voter) OR (Reveal Timeout AND Not Revealed)
+        assert!(is_only_voter || (reveal_window_passed && not_revealed), E_INVALID_PHASE);
+
+        // Mark as claimed to prevent double withdraw
+        table::add(&mut poll.claimed, sender, true);
+
+        // Refund NET_STAKE (original stake minus fee)
+        // Note: poll.pool has the net stakes.
+        let refund = balance::split(&mut poll.pool, NET_STAKE);
+        transfer::public_transfer(coin::from_balance(refund, ctx), sender);
     }
 
     // Phase 3: Claim Reward

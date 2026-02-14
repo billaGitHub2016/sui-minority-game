@@ -13,7 +13,20 @@ const ADMIN_SECRET_KEY = process.env.ADMIN_SECRET_KEY;
 const ADMIN_CAP_ID = process.env.ADMIN_CAP_ID;
 const POLL_DURATION = 120 * 1000; // 2 mins
 
-export async function GET() {
+export async function GET(request: Request) {
+  // Security Check: Verify Cron Secret
+  const authHeader = request.headers.get('authorization');
+  if (authHeader !== `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`) {
+    // If not matching service role, check if it's a manual admin run with admin secret?
+    // But for cron, we rely on service role key.
+    // However, Vercel Cron uses a different mechanism (CRON_SECRET).
+    // Supabase pg_cron uses the header we set in SQL.
+    
+    // Check for Vercel Cron header if needed, but here we enforce Bearer Token matching Service Role Key
+    // which we configured in pg_cron.
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   // Reload env vars at runtime to support standalone script execution
   const currentPackageId = PACKAGE_ID || process.env.NEXT_PUBLIC_PACKAGE_ID;
   const currentAdminKey = ADMIN_SECRET_KEY || process.env.ADMIN_SECRET_KEY;

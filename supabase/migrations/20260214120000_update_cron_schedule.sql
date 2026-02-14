@@ -7,8 +7,8 @@ select
     $$
     select
       net.http_get(
-        url := 'https://sui-minority-game.vercel.app/api/cron/generate-topics',
-        headers := '{"Content-Type": "application/json", "Authorization": "Bearer ' || current_setting('app.settings.service_role_key', true) || '"}'
+        url := 'https://your-domain.com/api/cron/generate-topics',
+        headers := ('{"Content-Type": "application/json", "Authorization": "Bearer ' || (select value from private.keys where key = 'service_role_key') || '"}')::jsonb
       ) as request_id;
     $$
   );

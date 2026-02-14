@@ -128,7 +128,7 @@ export default function TopicCard({
           <Flex align="center" gap="2">
              <ClockIcon color="gray" />
              <Text size="1" color="gray" style={{ fontFamily: 'monospace' }}>
-                {new Date(topic.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {new Date(topic.created_at).toLocaleString([], { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
              </Text>
           </Flex>
         </Flex>

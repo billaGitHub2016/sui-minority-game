@@ -128,7 +128,7 @@ export default function TopicCard({
           <Flex align="center" gap="2">
              <ClockIcon color="gray" />
              <Text size="1" color="gray" style={{ fontFamily: 'monospace' }}>
-                {new Date(topic.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {new Date(topic.created_at).toLocaleString([], { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
              </Text>
           </Flex>
         </Flex>
@@ -265,63 +265,71 @@ export default function TopicCard({
                             <Heading size="3">Final Results</Heading>
                             
                             {/* Stats Bar */}
-                            <Flex direction="column" gap="2">
-                                {/* Option A Bar */}
-                                <Flex align="center" gap="2">
-                                    <Box flexGrow="1" style={{ height: '24px', backgroundColor: '#222', borderRadius: '4px', overflow: 'hidden', position: 'relative' }}>
+                            <Box 
+                                style={{ 
+                                    height: '40px', 
+                                    backgroundColor: '#222', 
+                                    borderRadius: '6px', 
+                                    overflow: 'hidden', 
+                                    position: 'relative',
+                                    display: 'flex',
+                                    border: '1px solid var(--tech-border)'
+                                }}
+                            >
+                                {/* Draw or No Votes State */}
+                                {Number(onChainData?.count_a || 0) === Number(onChainData?.count_b || 0) ? (
+                                    <Flex 
+                                        justify="center" 
+                                        align="center" 
+                                        style={{ width: '100%', height: '100%', backgroundColor: 'var(--tech-accent)' }}
+                                    >
+                                        <Text size="2" weight="bold" style={{ color: 'black' }}>
+                                            DRAW: {topic.option_a} ({onChainData?.count_a || 0}) vs {topic.option_b} ({onChainData?.count_b || 0})
+                                        </Text>
+                                    </Flex>
+                                ) : (
+                                    <>
+                                        {/* Option A (Left) */}
                                         <Box 
                                             style={{ 
                                                 width: `${(Number(onChainData?.count_a || 0) / (Number(onChainData?.count_a || 0) + Number(onChainData?.count_b || 0) || 1)) * 100}%`,
                                                 height: '100%',
                                                 backgroundColor: Number(onChainData?.count_a) < Number(onChainData?.count_b) ? 'var(--tech-accent)' : '#EF4444',
-                                                transition: 'width 1s ease-out'
+                                                transition: 'width 1s ease-out',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                paddingLeft: '10px',
+                                                whiteSpace: 'nowrap',
+                                                overflow: 'hidden'
                                             }} 
-                                        />
-                                        <Text 
-                                            size="1" 
-                                            weight="bold" 
-                                            style={{ 
-                                                position: 'absolute', 
-                                                left: '8px', 
-                                                top: '50%', 
-                                                transform: 'translateY(-50%)', 
-                                                color: 'white',
-                                                textShadow: '0 1px 2px black'
-                                            }}
                                         >
-                                            {topic.option_a} ({onChainData?.count_a || 0})
-                                        </Text>
-                                    </Box>
-                                </Flex>
+                                            <Text size="2" weight="bold" style={{ color: 'white', textShadow: '0 1px 2px black' }}>
+                                                {topic.option_a} ({onChainData?.count_a || 0})
+                                            </Text>
+                                        </Box>
 
-                                {/* Option B Bar */}
-                                <Flex align="center" gap="2">
-                                    <Box flexGrow="1" style={{ height: '24px', backgroundColor: '#222', borderRadius: '4px', overflow: 'hidden', position: 'relative' }}>
+                                        {/* Option B (Right) */}
                                         <Box 
                                             style={{ 
-                                                width: `${(Number(onChainData?.count_b || 0) / (Number(onChainData?.count_a || 0) + Number(onChainData?.count_b || 0) || 1)) * 100}%`,
+                                                flexGrow: 1,
                                                 height: '100%',
                                                 backgroundColor: Number(onChainData?.count_b) < Number(onChainData?.count_a) ? 'var(--tech-accent)' : '#EF4444',
-                                                transition: 'width 1s ease-out'
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'flex-end',
+                                                paddingRight: '10px',
+                                                whiteSpace: 'nowrap',
+                                                overflow: 'hidden',
+                                                transition: 'background-color 0.3s'
                                             }} 
-                                        />
-                                        <Text 
-                                            size="1" 
-                                            weight="bold" 
-                                            style={{ 
-                                                position: 'absolute', 
-                                                left: '8px', 
-                                                top: '50%', 
-                                                transform: 'translateY(-50%)', 
-                                                color: 'white',
-                                                textShadow: '0 1px 2px black'
-                                            }}
                                         >
-                                            {topic.option_b} ({onChainData?.count_b || 0})
-                                        </Text>
-                                    </Box>
-                                </Flex>
-                            </Flex>
+                                            <Text size="2" weight="bold" style={{ color: 'white', textShadow: '0 1px 2px black' }}>
+                                                {topic.option_b} ({onChainData?.count_b || 0})
+                                            </Text>
+                                        </Box>
+                                    </>
+                                )}
+                            </Box>
 
                             {/* User Outcome */}
                             {userChoice && userChoice !== 'ENCRYPTED' && (

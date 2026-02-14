@@ -140,7 +140,7 @@ export default function DashboardPage() {
         }
         query = query.in('id', votedTopicIds)
     } else if (filters.activeTab === 'ended-topics') {
-        query = query.eq('status', 'ended') // Assuming status is updated in DB
+        query = query.eq('status', 'closed') // Assuming status is updated in DB
     }
 
     // Apply Pagination
@@ -159,25 +159,42 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
-    topics.forEach(async (topic) => {
-      if (topic.on_chain_id && isValidSuiObjectId(topic.on_chain_id)) {
-        try {
+    const fetchPollData = async () => {
+      const validTopics = topics.filter(
+        (t) => t.on_chain_id && isValidSuiObjectId(t.on_chain_id)
+      )
+
+      if (validTopics.length === 0) return
+
+      const newPollData: Record<string, any> = {}
+      
+      // Use a sequential approach or Promise.allSettled to handle errors gracefully
+      const results = await Promise.allSettled(validTopics.map(async (topic) => {
           const obj = await client.getObject({
-            id: topic.on_chain_id,
-            options: { showContent: true },
+              id: topic.on_chain_id,
+              options: { showContent: true },
           })
-          if (obj.data?.content?.dataType === 'moveObject') {
-            setPollData((prev) => ({
-              ...prev,
-              // @ts-ignore
-              [topic.id]: obj?.data?.content?.fields || {},
-            }))
+          return { topicId: topic.id, obj }
+      }))
+
+      results.forEach((result) => {
+          if (result.status === 'fulfilled') {
+              const { topicId, obj } = result.value
+              if (obj.data?.content?.dataType === 'moveObject') {
+                  // @ts-ignore
+                  newPollData[topicId] = obj.data?.content?.fields || {}
+              }
+          } else {
+              console.warn('Failed to fetch individual topic', result.reason)
           }
-        } catch (e) {
-          console.error('Failed to fetch poll data', e)
-        }
-      }
-    })
+      })
+
+      setPollData((prev) => ({ ...prev, ...newPollData }))
+    }
+
+    if (topics.length > 0) {
+        fetchPollData()
+    }
   }, [topics, client])
 
   const claimReward = async (topic: any) => {
@@ -261,9 +278,9 @@ export default function DashboardPage() {
   }
 
   return (
-    <Flex direction="column" gap="4" width="100%" p="4" align="center">
+    <Flex direction="column" width="100%" align="center">
       <Box style={{ width: '100%', maxWidth: '1200px' }}>
-        <Heading mb="4">Dashboard</Heading>
+        <Heading>Dashboard</Heading>
 
         {/* Filters */}
         <Card className="tech-card" style={{ marginBottom: '20px' }}>

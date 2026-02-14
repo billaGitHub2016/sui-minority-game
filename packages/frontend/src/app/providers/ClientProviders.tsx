@@ -6,6 +6,7 @@ import '@suiware/kit/main.css'
 import SuiProvider from '@suiware/kit/SuiProvider'
 import { ThemeProvider as NextThemeProvider } from 'next-themes'
 import { ReactNode } from 'react'
+import { Toaster } from 'react-hot-toast'
 import useNetworkConfig from '~~/hooks/useNetworkConfig'
 import { APP_NAME } from '../config/main'
 import { getThemeSettings } from '../helpers/theme'
@@ -22,12 +23,13 @@ export default function ClientProviders({ children }: { children: ReactNode }) {
       <ThemeProvider>
         <SuiProvider
           customNetworkConfig={networkConfig}
-          defaultNetwork={ENetwork.LOCALNET}
+          defaultNetwork={ENetwork.TESTNET}
           walletAutoConnect={false}
           walletStashedName={APP_NAME}
           themeSettings={themeSettings}
         >
           {children}
+          <Toaster position="bottom-right" />
         </SuiProvider>
       </ThemeProvider>
     </NextThemeProvider>

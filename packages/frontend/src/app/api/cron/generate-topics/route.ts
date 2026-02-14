@@ -11,7 +11,12 @@ const PACKAGE_ID = process.env.NEXT_PUBLIC_PACKAGE_ID;
 const MODULE_NAME = 'minority_game';
 const ADMIN_SECRET_KEY = process.env.ADMIN_SECRET_KEY;
 
-export async function GET() {
+export async function GET(request: Request) {
+  const authHeader = request.headers.get('authorization')
+  if (authHeader !== `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`) {
+    return new NextResponse('Unauthorized', { status: 401 })
+  }
+
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!

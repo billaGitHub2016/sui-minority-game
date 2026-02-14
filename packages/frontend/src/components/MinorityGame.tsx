@@ -15,10 +15,13 @@ import {
   Grid,
   Skeleton,
   Card,
+  Box,
 } from '@radix-ui/themes'
 import { Transaction } from '@mysten/sui/transactions'
 import { isValidSuiObjectId } from '@mysten/sui/utils'
 import * as tlock from 'tlock-js'
+import toast from 'react-hot-toast'
+import { Bot, Moon } from 'lucide-react'
 import TopicCard from './TopicCard'
 
 const PACKAGE_ID =
@@ -154,7 +157,7 @@ export default function MinorityGame() {
   }
 
   const createPollOnChain = async (topic: any) => {
-    if (!account) return alert('Connect wallet first')
+    if (!account) return toast.error('Connect wallet first')
     const tx = new Transaction()
     tx.moveCall({
       target: `${PACKAGE_ID}::${MODULE_NAME}::create_poll`,
@@ -172,7 +175,7 @@ export default function MinorityGame() {
       },
       {
         onSuccess: async (result) => {
-          alert('Poll created! Waiting for confirmation...')
+          toast.success('Poll created! Waiting for confirmation...')
           try {
             const tx = await client.waitForTransaction({
               digest: result.digest,
@@ -192,7 +195,7 @@ export default function MinorityGame() {
                 })
                 .eq('id', topic.id)
               fetchTopics()
-              alert('Poll activated successfully!')
+              toast.success('Poll activated successfully!')
             }
           } catch (e) {
             console.error('Error waiting for transaction:', e)
@@ -200,7 +203,7 @@ export default function MinorityGame() {
         },
         onError: (err) => {
           console.error(err)
-          alert('Failed to create poll.')
+          toast.error('Failed to create poll.')
         },
       }
     )
@@ -214,15 +217,15 @@ export default function MinorityGame() {
   }
 
   const commitVote = async (topic: any, choice: string) => {
-    if (!topic.on_chain_id) return alert('Poll not active on chain')
-    if (!account) return alert('Connect wallet first')
+    if (!topic.on_chain_id) return toast.error('Poll not active on chain')
+    if (!account) return toast.error('Connect wallet first')
     if (userVotes[topic.id])
-      return alert('You have already voted on this topic!')
+      return toast.error('You have already voted on this topic!')
 
     // 1. Calculate Voting End Time
     // We need on-chain creation time to be accurate.
     const onChainData = pollData[topic.id]
-    if (!onChainData) return alert('Loading chain data...')
+    if (!onChainData) return toast('Loading chain data...')
 
     const createdAt = Number(onChainData.created_at)
     const endTime = createdAt + POLL_DURATION
@@ -254,7 +257,7 @@ export default function MinorityGame() {
       // Let's check type. tlock.timelockEncrypt returns Promise<string> (age header + ciphertext).
     } catch (e) {
       console.error('Encryption failed:', e)
-      return alert('Encryption failed. Please try again.')
+      return toast.error('Encryption failed. Please try again.')
     }
 
     // 3. Compute Commitment Hash for Contract
@@ -291,7 +294,7 @@ export default function MinorityGame() {
       },
       {
         onSuccess: async (result) => {
-          alert('Transaction submitted! Waiting for confirmation on chain...')
+          toast.success('Transaction submitted! Waiting for confirmation on chain...')
           try {
             // Wait for transaction to be finalized
             await client.waitForTransaction({
@@ -312,21 +315,21 @@ export default function MinorityGame() {
               }),
             })
 
-            alert(
+            toast.success(
               `Vote Encrypted & Committed! It will be automatically decrypted and revealed after voting ends.`
             )
             fetchTopics()
             fetchUserVotes() // Refresh vote status
           } catch (e) {
             console.error('Error waiting for transaction:', e)
-            alert(
+            toast.error(
               'Transaction submitted but verification failed. Please check explorer.'
             )
           }
         },
         onError: (err) => {
           console.error(err)
-          alert('Vote failed')
+          toast.error('Vote failed')
         },
       }
     )
@@ -334,17 +337,17 @@ export default function MinorityGame() {
 
   const claimReward = async (topic: any) => {
     if (!topic.on_chain_id) return
-    if (!account) return alert('Connect wallet first')
+    if (!account) return toast.error('Connect wallet first')
 
     // Verify Winner Status locally first
     const userVote = userVotes[topic.id];
-    if (!userVote || !userVote.choice) return alert("Vote record not found. Did you vote?");
+    if (!userVote || !userVote.choice) return toast.error("Vote record not found. Did you vote?");
     
     // If choice is still ENCRYPTED, it means reveal failed or DB not updated.
-    if (userVote.choice === 'ENCRYPTED') return alert("Your vote hasn't been revealed yet. Please wait.");
+    if (userVote.choice === 'ENCRYPTED') return toast.error("Your vote hasn't been revealed yet. Please wait.");
 
     const onChainData = pollData[topic.id];
-    if (!onChainData) return alert("Loading results...");
+    if (!onChainData) return toast("Loading results...");
 
     const countA = Number(onChainData.count_a);
     const countB = Number(onChainData.count_b);
@@ -357,7 +360,7 @@ export default function MinorityGame() {
         const winningChoice = isAMinority ? topic.option_a : topic.option_b;
         
         if (userVote.choice !== winningChoice) {
-            return alert(`Sorry, you voted for "${userVote.choice}" which is the Majority. Only the Minority wins!`);
+            return toast.error(`Sorry, you voted for "${userVote.choice}" which is the Majority. Only the Minority wins!`);
         }
     }
 
@@ -373,26 +376,15 @@ export default function MinorityGame() {
       },
       {
         onSuccess: async () => {
-          alert('Reward claimed!')
+          toast.success('Reward claimed!')
           fetchTopics()
         },
         onError: (err) => {
           console.error(err)
-          alert('Failed to claim. Ensure reveal phase is over and you won.')
+          toast.error('Failed to claim. Ensure reveal phase is over and you won.')
         },
       }
     )
-  }
-
-  const generateTopics = async () => {
-    const res = await fetch('/api/cron/generate-topics')
-    const data = await res.json()
-    if (data.success) {
-      alert('Topics generated!')
-      fetchTopics()
-    } else {
-      alert('Failed to generate topics')
-    }
   }
 
   return (
@@ -411,14 +403,11 @@ export default function MinorityGame() {
                 Note: Votes are encrypted with Time-Lock. Even we can't read them until voting ends.
             </Text>
         </Flex>
-        <Button onClick={generateTopics} variant="outline">
-          Generate New Topics (AI)
-        </Button>
       </Flex>
 
-      <Grid columns={{ initial: '1', md: '2' }} gap="4">
-        {loading ? (
-            [...Array(4)].map((_, i) => (
+      {loading ? (
+        <Grid columns={{ initial: '1', md: '2' }} gap="4">
+            {[...Array(4)].map((_, i) => (
                 <Card key={i} className="tech-card" size="3">
                     <Flex direction="column" gap="3">
                         <Skeleton width="100%" height="24px" />
@@ -427,9 +416,11 @@ export default function MinorityGame() {
                         <Skeleton width="100%" height="120px" />
                     </Flex>
                 </Card>
-            ))
-        ) : (
-            topics.map((topic) => (
+            ))}
+        </Grid>
+      ) : topics.length > 0 ? (
+        <Grid columns={{ initial: '1', md: '2' }} gap="4">
+            {topics.map((topic) => (
             <TopicCard
                 key={topic.id}
                 topic={topic}
@@ -442,9 +433,36 @@ export default function MinorityGame() {
                 onClaim={claimReward}
                 onActivate={createPollOnChain}
             />
-            ))
-        )}
-      </Grid>
+            ))}
+        </Grid>
+      ) : (
+        <Flex direction="column" align="center" justify="center" gap="4" py="9" style={{ opacity: 0.8 }}>
+            <Box position="relative" style={{ width: '120px', height: '120px' }}>
+                <Bot size={120} strokeWidth={1.5} color="var(--gray-8)" />
+                <Box position="absolute" top="0" right="0" style={{ transform: 'translate(20%, -20%)' }}>
+                    <Moon size={40} strokeWidth={2} color="var(--accent-9)" fill="var(--accent-9)" style={{ opacity: 0.6 }} />
+                </Box>
+                <Text 
+                    size="6" 
+                    weight="bold" 
+                    color="gray" 
+                    style={{ 
+                        position: 'absolute', 
+                        top: '-20px', 
+                        right: '-40px', 
+                        transform: 'rotate(15deg)',
+                        opacity: 0.5
+                    }}
+                >
+                    Zzz...
+                </Text>
+            </Box>
+            <Text size="4" weight="medium" color="gray" align="center" mt="4">
+                The AI is taking a nap... 😴 <br/>
+                <Text size="2" weight="regular">Come back later for fresh topics!</Text>
+            </Text>
+        </Flex>
+      )}
     </Flex>
   )
 }

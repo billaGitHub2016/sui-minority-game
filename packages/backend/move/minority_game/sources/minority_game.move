@@ -25,8 +25,8 @@ module minority_game::minority_game {
     const FEE_AMOUNT: u64 = 1_000_000; // 0.001 SUI (1% of 0.1 SUI)
     const NET_STAKE: u64 = 99_000_000; // 0.099 SUI
 
-    const DURATION: u64 = 120 * 1000; // 2 minutes Voting Phase
-    const REVEAL_DURATION: u64 = 60 * 1000; // 1 minute Reveal Phase
+    const DURATION: u64 = 3600 * 1000; // 1 hour Voting Phase
+    const REVEAL_DURATION: u64 = 600 * 1000; // 10 minute Reveal Phase
 
     public struct AdminCap has key, store {
         id: UID
@@ -73,6 +73,11 @@ module minority_game::minority_game {
 
     fun init(ctx: &mut TxContext) {
         transfer::transfer(AdminCap { id: object::new(ctx) }, tx_context::sender(ctx));
+    }
+
+    #[test_only]
+    public fun init_for_testing(ctx: &mut TxContext) {
+        init(ctx)
     }
 
     public entry fun create_poll(
@@ -206,6 +211,7 @@ module minority_game::minority_game {
     }
 
     // Allow withdrawing stake if only 1 person voted OR if reveal phase timed out (24h) and not revealed
+    // Also allows withdrawal if the game is one-sided (one option has 0 votes) after reveal phase.
     public entry fun withdraw_stake(
         poll: &mut Poll,
         clock: &Clock,
@@ -216,21 +222,29 @@ module minority_game::minority_game {
         assert!(!table::contains(&poll.claimed, sender), E_ALREADY_CLAIMED);
 
         let now = clock::timestamp_ms(clock);
-        // Can withdraw if:
-        // 1. Voting ended AND Total votes == 1
-        // 2. Reveal window (24h) passed AND vote not revealed
         
         let voting_ended = now >= poll.created_at + DURATION;
         assert!(voting_ended, E_INVALID_PHASE);
 
-        let is_only_voter = poll.total_votes == 1;
+        let reveal_ended = now >= poll.created_at + DURATION + REVEAL_DURATION;
         let reveal_window_passed = now >= poll.created_at + DURATION + (24 * 60 * 60 * 1000);
         
         let commit = table::borrow(&poll.votes, sender);
-        let not_revealed = !commit.revealed;
+        let revealed = commit.revealed;
 
-        // Condition: (Only 1 voter) OR (Reveal Timeout AND Not Revealed)
-        assert!(is_only_voter || (reveal_window_passed && not_revealed), E_INVALID_PHASE);
+        // Condition 1: Total votes == 1 (No game possible)
+        let is_only_voter = poll.total_votes == 1;
+
+        // Condition 2: Reveal Timeout (24h) AND Not Revealed (Forgot to reveal)
+        let can_withdraw_unrevealed = reveal_window_passed && !revealed;
+
+        // Condition 3: One-sided Game (No Minority) - Only one option has votes
+        // Must be after reveal phase ends
+        let is_one_sided = (poll.count_a > 0 && poll.count_b == 0) || (poll.count_a == 0 && poll.count_b > 0);
+        let can_withdraw_one_sided = reveal_ended && is_one_sided && revealed;
+
+        // Condition: (Only 1 voter) OR (Reveal Timeout AND Not Revealed) OR (One-sided Game)
+        assert!(is_only_voter || can_withdraw_unrevealed || can_withdraw_one_sided, E_INVALID_PHASE);
 
         // Mark as claimed to prevent double withdraw
         table::add(&mut poll.claimed, sender, true);

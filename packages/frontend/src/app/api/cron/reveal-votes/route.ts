@@ -11,7 +11,7 @@ const PACKAGE_ID = process.env.NEXT_PUBLIC_PACKAGE_ID;
 const MODULE_NAME = 'minority_game';
 const ADMIN_SECRET_KEY = process.env.ADMIN_SECRET_KEY;
 const ADMIN_CAP_ID = process.env.ADMIN_CAP_ID;
-const POLL_DURATION = 120 * 1000; // 2 mins
+const POLL_DURATION = 3600 * 1000; // 60 mins
 
 export async function GET(request: Request) {
   // Security Check: Verify Cron Secret

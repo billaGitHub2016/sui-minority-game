@@ -27,8 +27,8 @@ const PACKAGE_ID =
   process.env.NEXT_PUBLIC_PACKAGE_ID ||
   '0x1aff31d8692f6e87404624eafbcd574eaac0c4752890b49e017d02a9e58101f7'
 const MODULE_NAME = 'minority_game'
-const POLL_DURATION = 120 * 1000 // 2 minutes
-const REVEAL_DURATION = 60 * 1000 // 1 minute
+const POLL_DURATION = 3600 * 1000 // 60 minutes
+const REVEAL_DURATION = 600 * 1000 // 10 minutes
 const ITEMS_PER_PAGE = 4
 
 export default function DashboardPage() {

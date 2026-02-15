@@ -52,17 +52,21 @@ export default function TopicCard({
   let status = topic.status
   let timeRemaining = 0
 
-  if (createdAt) {
-    if (currentTime < createdAt + POLL_DURATION) {
-      status = 'voting'
-      timeRemaining = createdAt + POLL_DURATION - currentTime
-    } else if (currentTime < createdAt + POLL_DURATION + REVEAL_DURATION) {
-      status = 'revealing'
-      timeRemaining =
-        createdAt + POLL_DURATION + REVEAL_DURATION - currentTime
-    } else {
-      status = 'ended'
-    }
+  if (status === 'closed') {
+    status = 'ended'
+  } else {
+      if (createdAt) {
+        if (currentTime < createdAt + POLL_DURATION) {
+          status = 'voting'
+          timeRemaining = createdAt + POLL_DURATION - currentTime
+        } else if (currentTime < createdAt + POLL_DURATION + REVEAL_DURATION) {
+          status = 'revealing'
+          timeRemaining =
+            createdAt + POLL_DURATION + REVEAL_DURATION - currentTime
+        } else {
+          status = 'ended'
+        }
+      }
   }
 
   const [realtimeVotes, setRealtimeVotes] = useState<number | null>(null)

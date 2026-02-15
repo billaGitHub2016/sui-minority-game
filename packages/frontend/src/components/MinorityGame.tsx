@@ -29,8 +29,8 @@ const PACKAGE_ID =
   '0x1aff31d8692f6e87404624eafbcd574eaac0c4752890b49e017d02a9e58101f7'
 const MODULE_NAME = 'minority_game'
 const STAKE_AMOUNT = 100_000_000 // 0.1 SUI
-const POLL_DURATION = 600 * 1000 // 10 minutes
-const REVEAL_DURATION = 60 * 1000 // 1 minute
+const POLL_DURATION = 3600 * 1000 // 60 minutes
+const REVEAL_DURATION = 600 * 1000 // 10 minute
 
 // Drand Mainnet Chain Hash
 const DRAND_CHAIN_HASH =
@@ -288,14 +288,18 @@ export default function MinorityGame() {
       ],
     })
 
+    tx.setGasBudget(100000000) // 0.1 SUI
+
     signAndExecute(
       {
         transaction: tx,
       },
       {
         onSuccess: async (result) => {
+          
           toast.success('Transaction submitted! Waiting for confirmation on chain...')
           try {
+            debugger
             // Wait for transaction to be finalized
             await client.waitForTransaction({
               digest: result.digest,

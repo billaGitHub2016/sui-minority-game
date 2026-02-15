@@ -44,8 +44,8 @@ export async function GET(request: Request) {
         const completion = await openai.chat.completions.create({
           model: "deepseek-v3-aliyun",
           messages: [
-            { role: "system", content: "You are a creative game master for a 'Minority Game' where players vote on binary choices. The minority side wins. Generate 4 interesting, controversial, or fun binary choice topics suitable for a global audience. Ensure the topics are diverse and cover different categories such as Technology, Philosophy, Pop Culture, Daily Habits, or Social Dilemmas. Avoid repeating themes. Output as JSON object with a key 'topics' containing an array of objects: { title, option_a, option_b, description }." },
-            { role: "user", content: `Generate 4 new topics. Do not repeat these recent topics:\n${existingTitles}` }
+            { role: "system", content: "You are a creative game master for a 'Minority Game'. Generate 4 binary choice topics. Rules: 1. Topics must be diverse (Tech, Daily Life, Philosophy, etc.). 2. Descriptions must be short and punchy (max 15 words). 3. Options must be very short (1-3 words max). 4. Output JSON: { topics: [{ title, option_a, option_b, description }] }." },
+            { role: "user", content: `Generate 4 new topics. Do not repeat:\n${existingTitles}` }
           ],
           response_format: { type: "json_object" }
         });

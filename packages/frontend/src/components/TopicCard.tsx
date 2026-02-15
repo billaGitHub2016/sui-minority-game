@@ -31,6 +31,7 @@ interface TopicCardProps {
   onVote: (topic: any, choice: string) => void
   onClaim: (topic: any) => void
   onActivate: (topic: any) => void
+  loadingAction: string | null
 }
 
 export default function TopicCard({
@@ -43,6 +44,7 @@ export default function TopicCard({
   onVote,
   onClaim,
   onActivate,
+  loadingAction,
 }: TopicCardProps) {
   const supabase = createClient()
   
@@ -88,6 +90,7 @@ export default function TopicCard({
   // Determine Winner Logic for UI
   let userWon = false
   let isDraw = false
+  let isOneSided = false
   let userChoice = userVotes[topic.id]?.choice
 
   if (
@@ -102,11 +105,21 @@ export default function TopicCard({
       isDraw = true
       userWon = true // Everyone wins (refund)
     } else {
-      const isAMinority = countA < countB
-      const winningChoice = isAMinority ? topic.option_a : topic.option_b
-      if (userChoice === winningChoice) {
-        userWon = true
-      }
+        // One-Sided Logic
+        isOneSided = (countA > 0 && countB === 0) || (countA === 0 && countB > 0);
+        
+        if (isOneSided) {
+             const winningChoice = countA > 0 ? topic.option_a : topic.option_b;
+             if (userChoice === winningChoice) {
+                 userWon = true;
+             }
+        } else {
+            const isAMinority = countA < countB
+            const winningChoice = isAMinority ? topic.option_a : topic.option_b
+            if (userChoice === winningChoice) {
+                userWon = true
+            }
+        }
     }
   }
 
@@ -213,37 +226,49 @@ export default function TopicCard({
                              ) : (
                                 <Grid columns="2" gap="3">
                                     <Button
-                                        size="3"
-                                        variant="outline"
+                                        size="4"
+                                        variant="soft"
+                                        color="green"
                                         style={{ 
                                             height: 'auto', 
-                                            padding: '16px', 
+                                            padding: '24px', 
                                             whiteSpace: 'normal',
-                                            borderColor: 'var(--tech-border)',
-                                            color: 'var(--tech-text-primary)'
+                                            cursor: loadingAction ? 'not-allowed' : 'pointer',
+                                            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                            boxShadow: '0 4px 6px -1px rgba(34, 197, 94, 0.3), 0 2px 4px -1px rgba(34, 197, 94, 0.1)',
+                                            border: '2px solid var(--green-9)'
                                         }}
                                         onClick={() => onVote(topic, topic.option_a)}
-                                        className="hover:bg-white/5 hover:border-green-500 transition-colors"
+                                        className={!loadingAction ? "hover:brightness-110 hover:-translate-y-1 hover:shadow-lg hover:shadow-green-500/40 active:scale-95 active:shadow-sm" : ""}
+                                        loading={loadingAction === 'voting_A'}
+                                        disabled={!!loadingAction}
                                     >
-                                        <Flex direction="column" align="center" gap="1">
-                                            <Text size="2" align="center">{topic.option_a}</Text>
+                                        <Flex direction="column" align="center" gap="2">
+                                            <Text size="1" weight="bold" style={{ textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.9 }}>Option A</Text>
+                                            <Text size="5" weight="bold" align="center">{topic.option_a}</Text>
                                         </Flex>
                                     </Button>
                                     <Button
-                                        size="3"
-                                        variant="outline"
+                                        size="4"
+                                        variant="soft"
+                                        color="blue"
                                         style={{ 
                                             height: 'auto', 
-                                            padding: '16px', 
+                                            padding: '24px', 
                                             whiteSpace: 'normal',
-                                            borderColor: 'var(--tech-border)',
-                                            color: 'var(--tech-text-primary)'
+                                            cursor: loadingAction ? 'not-allowed' : 'pointer',
+                                            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                            boxShadow: '0 4px 6px -1px rgba(59, 130, 246, 0.3), 0 2px 4px -1px rgba(59, 130, 246, 0.1)',
+                                            border: '2px solid var(--blue-9)'
                                         }}
                                         onClick={() => onVote(topic, topic.option_b)}
-                                        className="hover:bg-white/5 hover:border-green-500 transition-colors"
+                                        className={!loadingAction ? "hover:brightness-110 hover:-translate-y-1 hover:shadow-lg hover:shadow-blue-500/40 active:scale-95 active:shadow-sm" : ""}
+                                        loading={loadingAction === 'voting_B'}
+                                        disabled={!!loadingAction}
                                     >
-                                        <Flex direction="column" align="center" gap="1">
-                                            <Text size="2" align="center">{topic.option_b}</Text>
+                                        <Flex direction="column" align="center" gap="2">
+                                            <Text size="1" weight="bold" style={{ textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.9 }}>Option B</Text>
+                                            <Text size="5" weight="bold" align="center">{topic.option_b}</Text>
                                         </Flex>
                                     </Button>
                                 </Grid>
@@ -271,7 +296,7 @@ export default function TopicCard({
                             {/* Stats Bar */}
                             <Box 
                                 style={{ 
-                                    height: '40px', 
+                                    minHeight: '40px', 
                                     backgroundColor: '#222', 
                                     borderRadius: '6px', 
                                     overflow: 'hidden', 
@@ -284,11 +309,15 @@ export default function TopicCard({
                                 {Number(onChainData?.count_a || 0) === Number(onChainData?.count_b || 0) ? (
                                     <Flex 
                                         justify="center" 
-                                        align="center" 
-                                        style={{ width: '100%', height: '100%', backgroundColor: 'var(--tech-accent)' }}
-                                    >
-                                        <Text size="2" weight="bold" style={{ color: 'black' }}>
-                                            DRAW: {topic.option_a} ({onChainData?.count_a || 0}) vs {topic.option_b} ({onChainData?.count_b || 0})
+                                        align="center"
+                                        direction="column"
+                                        style={{ width: '100%', minHeight: '40px', padding: '8px', backgroundColor: 'var(--tech-accent)' }}
+                                    >   
+                                        <Text size="2" weight="bold" align="center" style={{ color: 'black', wordBreak: 'break-word' }}>
+                                            Draw:
+                                        </Text>
+                                        <Text size="2" weight="bold" align="center" style={{ color: 'black', wordBreak: 'break-word' }}>
+                                            {topic.option_a} ({onChainData?.count_a || 0}) <br/> vs <br/> {topic.option_b} ({onChainData?.count_b || 0})
                                         </Text>
                                     </Flex>
                                 ) : (
@@ -297,17 +326,16 @@ export default function TopicCard({
                                         <Box 
                                             style={{ 
                                                 width: `${(Number(onChainData?.count_a || 0) / (Number(onChainData?.count_a || 0) + Number(onChainData?.count_b || 0) || 1)) * 100}%`,
-                                                height: '100%',
                                                 backgroundColor: Number(onChainData?.count_a) < Number(onChainData?.count_b) ? 'var(--tech-accent)' : '#EF4444',
                                                 transition: 'width 1s ease-out',
                                                 display: 'flex',
                                                 alignItems: 'center',
-                                                paddingLeft: '10px',
-                                                whiteSpace: 'nowrap',
+                                                padding: '8px',
+                                                wordBreak: 'break-word',
                                                 overflow: 'hidden'
                                             }} 
                                         >
-                                            <Text size="2" weight="bold" style={{ color: 'white', textShadow: '0 1px 2px black' }}>
+                                            <Text size="2" weight="bold" style={{ color: 'white', textShadow: '0 1px 2px black', lineHeight: '1.2' }}>
                                                 {topic.option_a} ({onChainData?.count_a || 0})
                                             </Text>
                                         </Box>
@@ -316,18 +344,17 @@ export default function TopicCard({
                                         <Box 
                                             style={{ 
                                                 flexGrow: 1,
-                                                height: '100%',
                                                 backgroundColor: Number(onChainData?.count_b) < Number(onChainData?.count_a) ? 'var(--tech-accent)' : '#EF4444',
                                                 display: 'flex',
                                                 alignItems: 'center',
                                                 justifyContent: 'flex-end',
-                                                paddingRight: '10px',
-                                                whiteSpace: 'nowrap',
-                                                overflow: 'hidden',
-                                                transition: 'background-color 0.3s'
+                                                padding: '8px',
+                                                wordBreak: 'break-word',
+                                                transition: 'background-color 0.3s',
+                                                overflow: 'hidden'
                                             }} 
                                         >
-                                            <Text size="2" weight="bold" style={{ color: 'white', textShadow: '0 1px 2px black' }}>
+                                            <Text size="2" weight="bold" align="right" style={{ color: 'white', textShadow: '0 1px 2px black', lineHeight: '1.2' }}>
                                                 {topic.option_b} ({onChainData?.count_b || 0})
                                             </Text>
                                         </Box>
@@ -345,8 +372,10 @@ export default function TopicCard({
                                             variant="soft" 
                                             style={{ width: '100%', fontWeight: 'bold' }}
                                             onClick={() => onClaim(topic)}
+                                            loading={loadingAction === 'claiming'}
+                                            disabled={!!loadingAction}
                                         >
-                                            🏆 {isDraw ? "It's a Draw! Refund" : "You Won! Claim Reward"}
+                                            🏆 {isDraw || isOneSided ? "No Minority! Refund Stake" : "You Won! Claim Reward"}
                                         </Button>
                                     ) : (
                                         <Flex 
@@ -372,6 +401,8 @@ export default function TopicCard({
                     variant="soft" 
                     style={{ width: '100%' }} 
                     onClick={() => onActivate(topic)}
+                    loading={loadingAction === 'activating'}
+                    disabled={!!loadingAction}
                 >
                     🚀 Activate On-Chain
                 </Button>

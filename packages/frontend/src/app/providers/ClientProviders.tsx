@@ -29,7 +29,12 @@ export default function ClientProviders({ children }: { children: ReactNode }) {
           themeSettings={themeSettings}
         >
           {children}
-          <Toaster position="bottom-right" />
+          <Toaster
+            position="bottom-right"
+            toastOptions={{
+              duration: 15000,
+            }}
+          />
         </SuiProvider>
       </ThemeProvider>
     </NextThemeProvider>

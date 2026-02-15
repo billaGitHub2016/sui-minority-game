@@ -23,6 +23,7 @@ import * as tlock from 'tlock-js'
 import toast from 'react-hot-toast'
 import { Bot, Moon } from 'lucide-react'
 import TopicCard from './TopicCard'
+import { blake2b } from 'blakejs'
 
 const PACKAGE_ID =
   process.env.NEXT_PUBLIC_PACKAGE_ID ||
@@ -50,6 +51,11 @@ export default function MinorityGame() {
   const [pollData, setPollData] = useState<Record<string, any>>({})
   const [userVotes, setUserVotes] = useState<Record<string, any>>({}) // Track user votes per topic: { topicId: { status, choice } }
   const [currentTime, setCurrentTime] = useState(Date.now())
+  const [actionLoading, setActionLoading] = useState<Record<string, string | null>>({})
+
+  const setTopicLoading = (topicId: string, action: string | null) => {
+    setActionLoading((prev) => ({ ...prev, [topicId]: action }))
+  }
 
   useEffect(() => {
     fetchTopics()
@@ -158,6 +164,9 @@ export default function MinorityGame() {
 
   const createPollOnChain = async (topic: any) => {
     if (!account) return toast.error('Connect wallet first')
+    
+    setTopicLoading(topic.id, 'activating')
+    
     const tx = new Transaction()
     tx.moveCall({
       target: `${PACKAGE_ID}::${MODULE_NAME}::create_poll`,
@@ -199,11 +208,14 @@ export default function MinorityGame() {
             }
           } catch (e) {
             console.error('Error waiting for transaction:', e)
+          } finally {
+            setTopicLoading(topic.id, null)
           }
         },
         onError: (err) => {
           console.error(err)
           toast.error('Failed to create poll.')
+          setTopicLoading(topic.id, null)
         },
       }
     )
@@ -222,10 +234,16 @@ export default function MinorityGame() {
     if (userVotes[topic.id])
       return toast.error('You have already voted on this topic!')
 
+    const action = choice === topic.option_a ? 'voting_A' : 'voting_B'
+    setTopicLoading(topic.id, action)
+
     // 1. Calculate Voting End Time
     // We need on-chain creation time to be accurate.
     const onChainData = pollData[topic.id]
-    if (!onChainData) return toast('Loading chain data...')
+    if (!onChainData) {
+        setTopicLoading(topic.id, null)
+        return toast('Loading chain data...')
+    }
 
     const createdAt = Number(onChainData.created_at)
     const endTime = createdAt + POLL_DURATION
@@ -257,6 +275,7 @@ export default function MinorityGame() {
       // Let's check type. tlock.timelockEncrypt returns Promise<string> (age header + ciphertext).
     } catch (e) {
       console.error('Encryption failed:', e)
+      setTopicLoading(topic.id, null)
       return toast.error('Encryption failed. Please try again.')
     }
 
@@ -272,7 +291,7 @@ export default function MinorityGame() {
     combined.set(saltBytes, choiceBytes.length)
 
     // Import blake2b dynamically or assume it's available
-    const { blake2b } = require('blakejs')
+    // const { blake2b } = require('blakejs')
     const hash = blake2b(combined, undefined, 32)
 
     const tx = new Transaction()
@@ -298,13 +317,11 @@ export default function MinorityGame() {
         onSuccess: async (result) => {
           
           toast.success('Transaction submitted! Waiting for confirmation on chain...')
+          // Wait for transaction to be finalized
+          await client.waitForTransaction({
+            digest: result.digest,
+          })
           try {
-            debugger
-            // Wait for transaction to be finalized
-            await client.waitForTransaction({
-              digest: result.digest,
-            })
-
             // 4. Backup ENCRYPTED Vote to Server
             await fetch('/api/vote/backup', {
               method: 'POST',
@@ -329,11 +346,14 @@ export default function MinorityGame() {
             toast.error(
               'Transaction submitted but verification failed. Please check explorer.'
             )
+          } finally {
+            setTopicLoading(topic.id, null)
           }
         },
         onError: (err) => {
           console.error(err)
           toast.error('Vote failed')
+          setTopicLoading(topic.id, null)
         },
       }
     )
@@ -360,19 +380,62 @@ export default function MinorityGame() {
     if (countA === countB) {
         // Allow claim
     } else {
-        const isAMinority = countA < countB;
-        const winningChoice = isAMinority ? topic.option_a : topic.option_b;
-        
-        if (userVote.choice !== winningChoice) {
-            return toast.error(`Sorry, you voted for "${userVote.choice}" which is the Majority. Only the Minority wins!`);
+        const isOneSided = (countA > 0 && countB === 0) || (countA === 0 && countB > 0);
+        if (isOneSided) {
+             const winningChoice = countA > 0 ? topic.option_a : topic.option_b;
+             if (userVote.choice !== winningChoice) {
+                // This shouldn't happen if isOneSided is true and user revealed, 
+                // because if they revealed they MUST be in the non-zero group.
+                // But just in case.
+                return toast.error("You are not in the winning group.");
+             }
+             // If One Sided, we allow claim via withdraw_stake
+        } else {
+            const isAMinority = countA < countB;
+            const winningChoice = isAMinority ? topic.option_a : topic.option_b;
+            
+            if (userVote.choice !== winningChoice) {
+                return toast.error(`Sorry, you voted for "${userVote.choice}" which is the Majority. Only the Minority wins!`);
+            }
         }
     }
 
+    setTopicLoading(topic.id, 'claiming')
+
     const tx = new Transaction()
-    tx.moveCall({
-      target: `${PACKAGE_ID}::${MODULE_NAME}::claim_reward`,
-      arguments: [tx.object(topic.on_chain_id), tx.object('0x6')],
-    })
+    
+    // Determine which function to call
+    // If Draw OR One-Sided -> withdraw_stake (Refund logic)
+    // Else -> claim_reward
+    const isOneSided = (countA > 0 && countB === 0) || (countA === 0 && countB > 0);
+    const isDraw = countA === countB;
+
+    if (isDraw || isOneSided) {
+         // Note: The Move contract `claim_reward` handles Draw logic.
+         // But `withdraw_stake` handles One-Sided logic.
+         // Wait, `claim_reward` in Move handles Draw:
+         // if (is_draw) { reward_amount = NET_STAKE; }
+         // So for Draw, we should call `claim_reward`.
+         
+         if (isOneSided) {
+            tx.moveCall({
+                target: `${PACKAGE_ID}::${MODULE_NAME}::withdraw_stake`,
+                arguments: [tx.object(topic.on_chain_id), tx.object('0x6')],
+            })
+         } else {
+            // Draw
+            tx.moveCall({
+                target: `${PACKAGE_ID}::${MODULE_NAME}::claim_reward`,
+                arguments: [tx.object(topic.on_chain_id), tx.object('0x6')],
+            })
+         }
+    } else {
+        // Normal Win
+        tx.moveCall({
+            target: `${PACKAGE_ID}::${MODULE_NAME}::claim_reward`,
+            arguments: [tx.object(topic.on_chain_id), tx.object('0x6')],
+        })
+    }
 
     signAndExecute(
       {
@@ -382,10 +445,12 @@ export default function MinorityGame() {
         onSuccess: async () => {
           toast.success('Reward claimed!')
           fetchTopics()
+          setTopicLoading(topic.id, null)
         },
         onError: (err) => {
           console.error(err)
           toast.error('Failed to claim. Ensure reveal phase is over and you won.')
+          setTopicLoading(topic.id, null)
         },
       }
     )
@@ -395,19 +460,36 @@ export default function MinorityGame() {
     <Flex direction="column" gap="4" width="100%">
       <Flex justify="between" align="center">
         <Flex direction="column" gap="1">
-            <Flex gap="3" align="center">
-                <Heading>Active Topics</Heading>
-                {globalTimeRemaining && (
-                    <Text size="8" weight="bold" color="red" style={{ fontFamily: 'monospace', letterSpacing: '0.05em' }}>
-                        ⏱ {globalTimeRemaining}
-                    </Text>
-                )}
-            </Flex>
+            <Heading>Active Topics</Heading>
             <Text size="2" color="blue" style={{ fontStyle: 'italic' }}>
                 Note: Votes are encrypted with Time-Lock. Even we can't read them until voting ends.
             </Text>
         </Flex>
       </Flex>
+
+      {globalTimeRemaining && (
+        <Card 
+            size="2" 
+            style={{ 
+                backgroundColor: 'rgba(239, 68, 68, 0.1)', 
+                border: '1px solid var(--red-9)',
+                textAlign: 'center',
+                boxShadow: '0 0 15px rgba(239, 68, 68, 0.2)'
+            }}
+        >
+            <Flex direction="column" align="center" gap="1">
+                <Text size="2" weight="bold" color="red" style={{ textTransform: 'uppercase', letterSpacing: '2px' }}>
+                    🔥 Voting Ends In
+                </Text>
+                <Text size="8" weight="bold" color="red" style={{ fontFamily: 'monospace', letterSpacing: '0.1em', textShadow: '0 0 10px rgba(239, 68, 68, 0.5)' }}>
+                    {globalTimeRemaining}
+                </Text>
+                <Text size="1" color="red" style={{ opacity: 0.8 }}>
+                    Make your choice before time runs out!
+                </Text>
+            </Flex>
+        </Card>
+      )}
 
       {loading ? (
         <Grid columns={{ initial: '1', md: '2' }} gap="4">
@@ -436,6 +518,7 @@ export default function MinorityGame() {
                 onVote={commitVote}
                 onClaim={claimReward}
                 onActivate={createPollOnChain}
+                loadingAction={actionLoading[topic.id] || null}
             />
             ))}
         </Grid>

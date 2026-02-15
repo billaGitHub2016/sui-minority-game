@@ -24,8 +24,7 @@ import TopicCard from '@/components/TopicCard'
 import { Search } from 'lucide-react'
 
 const PACKAGE_ID =
-  process.env.NEXT_PUBLIC_PACKAGE_ID ||
-  '0x1aff31d8692f6e87404624eafbcd574eaac0c4752890b49e017d02a9e58101f7'
+  process.env.NEXT_PUBLIC_PACKAGE_ID
 const MODULE_NAME = 'minority_game'
 const POLL_DURATION = 3600 * 1000 // 60 minutes
 const REVEAL_DURATION = 600 * 1000 // 10 minutes
@@ -57,7 +56,7 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchTopics()
     if (account) fetchUserVotes()
-  }, [account, filters]) // Refetch when filters change
+  }, [account, filters.page, filters.activeTab]) // Refetch when filters change
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -85,7 +84,7 @@ export default function DashboardPage() {
     setUserVotes(votesMap)
   }
 
-  const fetchTopics = async () => {
+  const fetchTopics = async (currentFilters = filters) => {
     setLoading(true)
     
     // Simulate a minimum loading time for better UX
@@ -97,16 +96,16 @@ export default function DashboardPage() {
       .order('created_at', { ascending: false })
 
     // Apply Search
-    if (filters.searchQuery) {
-        query = query.ilike('title', `%${filters.searchQuery}%`)
+    if (currentFilters.searchQuery) {
+        query = query.ilike('title', `%${currentFilters.searchQuery}%`)
     }
 
     // Apply Date Range
-    if (filters.dateFrom) {
-        query = query.gte('created_at', new Date(filters.dateFrom).toISOString())
+    if (currentFilters.dateFrom) {
+        query = query.gte('created_at', new Date(currentFilters.dateFrom).toISOString())
     }
-    if (filters.dateTo) {
-        const nextDay = new Date(filters.dateTo)
+    if (currentFilters.dateTo) {
+        const nextDay = new Date(currentFilters.dateTo)
         nextDay.setDate(nextDay.getDate() + 1)
         query = query.lt('created_at', nextDay.toISOString())
     }
@@ -117,7 +116,7 @@ export default function DashboardPage() {
     // For 'my-votes', let's filter client side if the dataset is small, OR 
     // better: fetch user votes first, get topic IDs, then fetch those topics.)
     
-    if (filters.activeTab === 'my-votes') {
+    if (currentFilters.activeTab === 'my-votes') {
         if (!account) {
             setTopics([])
             setTotalCount(0)
@@ -139,12 +138,12 @@ export default function DashboardPage() {
             return
         }
         query = query.in('id', votedTopicIds)
-    } else if (filters.activeTab === 'ended-topics') {
+    } else if (currentFilters.activeTab === 'ended-topics') {
         query = query.eq('status', 'closed') // Assuming status is updated in DB
     }
 
     // Apply Pagination
-    const from = (filters.page - 1) * ITEMS_PER_PAGE
+    const from = (currentFilters.page - 1) * ITEMS_PER_PAGE
     const to = from + ITEMS_PER_PAGE - 1
     query = query.range(from, to)
 
@@ -293,7 +292,7 @@ export default function DashboardPage() {
                 placeholder="Search by title..."
                 value={filters.searchQuery}
                 onChange={(e) => {
-                    setFilters(prev => ({ ...prev, searchQuery: e.target.value, page: 1 }))
+                    setFilters(prev => ({ ...prev, searchQuery: e.target.value }))
                 }}
                 variant="soft"
                 >
@@ -323,7 +322,7 @@ export default function DashboardPage() {
                 type="date"
                 value={filters.dateTo}
                 onChange={(e) => {
-                    setFilters(prev => ({ ...prev, dateTo: e.target.value, page: 1 }))
+                    setFilters(prev => ({ ...prev, dateTo: e.target.value }))
                 }}
                 variant="soft"
                 />
@@ -331,9 +330,15 @@ export default function DashboardPage() {
             <Button
                 variant="solid"
                 color="grass"
+                loading={loading}
+                disabled={loading}
                 onClick={() => {
-                    fetchTopics()
-                    if (account) fetchUserVotes()
+                    if (filters.page === 1) {
+                        fetchTopics()
+                        if (account) fetchUserVotes()
+                    } else {
+                        setFilters(prev => ({ ...prev, page: 1 }))
+                    }
                 }}
                 style={{ cursor: 'pointer' }}
             >
@@ -343,13 +348,16 @@ export default function DashboardPage() {
                 variant="soft"
                 color="gray"
                 onClick={() => {
-                setFilters(prev => ({
-                    ...prev,
-                    searchQuery: '',
-                    dateFrom: '',
-                    dateTo: '',
-                    page: 1
-                }))
+                    const newFilters = {
+                        ...filters,
+                        searchQuery: '',
+                        dateFrom: '',
+                        dateTo: '',
+                        page: 1
+                    }
+                    setFilters(newFilters)
+                    // Explicitly fetch with new filters since useEffect might not trigger if page was already 1
+                    fetchTopics(newFilters)
                 }}
                 style={{ cursor: 'pointer' }}
             >

@@ -6,8 +6,8 @@ import { ConnectButton } from '@mysten/dapp-kit'
 
 export default function GamePage() {
   return (
-    <Container size="3" p="4">
-      <Flex direction="column" gap="6">
+    <Container size="3" p="0">
+      <Flex direction="column">
         <Flex justify="between" align="center">
         </Flex>
         <MinorityGame />

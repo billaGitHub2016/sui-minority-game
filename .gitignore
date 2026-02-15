@@ -14,3 +14,5 @@ node_modules
 
 # Arweave
 arweave-keyfile*
+
+frontend/scripts

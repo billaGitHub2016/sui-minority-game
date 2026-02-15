@@ -91,7 +91,18 @@ export default function TopicCard({
   let userWon = false
   let isDraw = false
   let isOneSided = false
+  let isClaimed = false
+  let isRefunded = false
+  let claimedDigest = ''
   let userChoice = userVotes[topic.id]?.choice
+
+  if (userVotes[topic.id]?.status === 'claimed') {
+      isClaimed = true
+      claimedDigest = userVotes[topic.id]?.claimed_digest
+  } else if (userVotes[topic.id]?.status === 'refunded') {
+      isRefunded = true
+      claimedDigest = userVotes[topic.id]?.claimed_digest
+  }
 
   if (
     status === 'ended' &&
@@ -365,7 +376,21 @@ export default function TopicCard({
                             {/* User Outcome */}
                             {userChoice && userChoice !== 'ENCRYPTED' && (
                                 <Box mt="2">
-                                    {userWon ? (
+                                    {isClaimed || isRefunded ? (
+                                        <Button
+                                            color="gray"
+                                            size="3"
+                                            variant="soft"
+                                            style={{ width: '100%', fontWeight: 'bold' }}
+                                            onClick={() => {
+                                                if (claimedDigest) {
+                                                    window.open(`https://suiscan.xyz/testnet/tx/${claimedDigest}`, '_blank')
+                                                }
+                                            }}
+                                        >
+                                            {isRefunded ? '↩️ Stake Refunded' : '✅ Reward Claimed'} {claimedDigest && <ExternalLinkIcon />}
+                                        </Button>
+                                    ) : userWon ? (
                                         <Button 
                                             color="gold" 
                                             size="3" 

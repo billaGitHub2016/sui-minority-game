@@ -21,6 +21,7 @@ import {
 import { Transaction } from '@mysten/sui/transactions'
 import { isValidSuiObjectId } from '@mysten/sui/utils'
 import TopicCard from '@/components/TopicCard'
+import toast from 'react-hot-toast'
 import { Search } from 'lucide-react'
 
 const PACKAGE_ID =
@@ -70,7 +71,7 @@ export default function DashboardPage() {
     if (!account) return
     const { data } = await supabase
       .from('user_votes')
-      .select('topic_id, status, choice, tx_digest')
+      .select('topic_id, status, choice, tx_digest, claimed_amount, claimed_digest')
       .eq('user_address', account.address)
 
     const votesMap: Record<string, any> = {}
@@ -79,6 +80,8 @@ export default function DashboardPage() {
         status: v.status,
         choice: v.choice,
         tx_digest: v.tx_digest,
+        claimed_amount: v.claimed_amount,
+        claimed_digest: v.claimed_digest,
       }
     })
     setUserVotes(votesMap)
@@ -198,17 +201,17 @@ export default function DashboardPage() {
 
   const claimReward = async (topic: any) => {
     if (!topic.on_chain_id) return
-    if (!account) return alert('Connect wallet first')
+    if (!account) return toast.error('Connect wallet first')
 
     const userVote = userVotes[topic.id]
     if (!userVote || !userVote.choice)
-      return alert('Vote record not found. Did you vote?')
+      return toast.error('Vote record not found. Did you vote?')
 
     if (userVote.choice === 'ENCRYPTED')
-      return alert("Your vote hasn't been revealed yet. Please wait.")
+      return toast.error("Your vote hasn't been revealed yet. Please wait.")
 
     const onChainData = pollData[topic.id]
-    if (!onChainData) return alert('Loading results...')
+    if (!onChainData) return toast('Loading results...')
 
     const countA = Number(onChainData.count_a)
     const countB = Number(onChainData.count_b)
@@ -216,32 +219,95 @@ export default function DashboardPage() {
     if (countA !== countB) {
       const isAMinority = countA < countB
       const winningChoice = isAMinority ? topic.option_a : topic.option_b
+      const isOneSided = (countA > 0 && countB === 0) || (countA === 0 && countB > 0)
 
-      if (userVote.choice !== winningChoice) {
-        return alert(
+      if (userVote.choice !== winningChoice && !isOneSided) {
+        return toast.error(
           `Sorry, you voted for "${userVote.choice}" which is the Majority. Only the Minority wins!`
         )
       }
     }
 
+    const isOneSided = (countA > 0 && countB === 0) || (countA === 0 && countB > 0);
+    
     const tx = new Transaction()
-    tx.moveCall({
-      target: `${PACKAGE_ID}::${MODULE_NAME}::claim_reward`,
-      arguments: [tx.object(topic.on_chain_id), tx.object('0x6')],
-    })
+    if (isOneSided) {
+        tx.moveCall({
+            target: `${PACKAGE_ID}::${MODULE_NAME}::withdraw_stake`,
+            arguments: [tx.object(topic.on_chain_id), tx.object('0x6')],
+        })
+    } else {
+        tx.moveCall({
+            target: `${PACKAGE_ID}::${MODULE_NAME}::claim_reward`,
+            arguments: [tx.object(topic.on_chain_id), tx.object('0x6')],
+        })
+    }
 
     signAndExecute(
       {
         transaction: tx,
       },
       {
-        onSuccess: async () => {
-          alert('Reward claimed!')
-          fetchTopics()
+        onSuccess: async (result) => {
+          toast.success('Reward claimed! Updating record...')
+          
+          try {
+              // Wait for transaction
+              await client.waitForTransaction({ digest: result.digest, options: { showEvents: true } })
+
+              // Find ClaimEvent or TransferObject (for withdraw_stake)
+              // Note: The Move contract emits ClaimEvent in claim_reward. 
+              // But withdraw_stake does NOT emit ClaimEvent in the provided code (it just transfers coin).
+              // However, we can track the transaction digest and update status.
+              // If we want to be precise about amount, we need to read from events or balance changes.
+              
+              // Let's look for ClaimEvent if it exists
+              // We need to fetch transaction details again to get events if waitForTransaction didn't return them fully parsed as we need
+              // Actually waitForTransaction returns SuiTransactionBlockResponse
+              
+              // For now, let's just mark it as claimed with the digest.
+              // If we want amount, we might need to parse events.
+              
+              // Let's try to find amount from events if available
+              let amount = 0;
+              // We can't easily parse events here without knowing the exact type tag structure or iterating.
+              // But for MVP, we know the status is claimed.
+              
+              const { data: updatedData, error: updateError } = await supabase
+                .from('user_votes')
+                .update({
+                    status: isOneSided ? 'refunded' : 'claimed',
+                    claimed_digest: result.digest,
+                    // claimed_amount: ... // Ideally we parse this from event
+                })
+                .eq('topic_id', topic.id)
+                .ilike('user_address', account.address)
+                .select()
+
+              if (updateError) {
+                  console.error("Supabase update error:", updateError)
+                  throw updateError
+              }
+              
+              if (!updatedData || updatedData.length === 0) {
+                  console.warn("No rows updated. Check RLS or matching conditions.")
+                  console.log("Topic ID:", topic.id)
+                  console.log("User Address:", account.address)
+              } else {
+                  console.log("Updated vote record:", updatedData)
+              }
+
+              toast.success('Record updated!')
+              fetchTopics()
+              if (account) fetchUserVotes()
+          } catch (e) {
+              console.error("Error updating record:", e)
+              toast.error("Claimed on chain but failed to update local record. Please refresh.")
+          }
         },
         onError: (err) => {
           console.error(err)
-          alert('Failed to claim. Ensure reveal phase is over and you won.')
+          toast.error('Failed to claim. Ensure reveal phase is over and you won.')
         },
       }
     )

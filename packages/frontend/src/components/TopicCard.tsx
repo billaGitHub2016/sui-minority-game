@@ -31,7 +31,7 @@ interface TopicCardProps {
   onVote: (topic: any, choice: string) => void
   onClaim: (topic: any) => void
   onActivate: (topic: any) => void
-  loadingAction: string | null
+  loadingAction?: string | null
 }
 
 export default function TopicCard({

@@ -243,6 +243,9 @@ export default function DashboardPage() {
         })
     }
 
+    // Set gas budget for reveal transaction
+    tx.setGasBudget(100_000_000); // 0.1 SUI
+
     signAndExecute(
       {
         transaction: tx,

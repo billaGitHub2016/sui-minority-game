@@ -105,8 +105,8 @@ pnpm dev
     ```
 
 ## AI工具声明
-AI 模型l: Gemini-3-Pro-Preview
-开发 IDE: Trae SOLO mode
+AI 模型l: Gemini-3-Pro-Preview  
+开发 IDE: Trae SOLO mode  
 关键 Prompt:
 1. 项目核心定义 Prompt (Project Definition):
     创建一个基于 Sui 区块链的去中心化 '少数派游戏' (Minority Game) 应用。游戏规则是玩家在两个选项 (如 A vs B) 中进行选择，最终选择人数较少的一方获胜。获胜者将平分所有参与者的质押金额。

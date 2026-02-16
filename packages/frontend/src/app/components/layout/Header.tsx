@@ -1,7 +1,8 @@
 'use client'
 
 import { ConnectButton } from '@mysten/dapp-kit'
-import { Link } from '@radix-ui/themes'
+import NextLink from 'next/link'
+import { usePathname } from 'next/navigation'
 import Balance from '@suiware/kit/Balance'
 import NetworkType from '@suiware/kit/NetworkType'
 import { APP_NAME } from '../../config/main'
@@ -9,9 +10,16 @@ import Image from 'next/image'
 import Logo from '../../assets/logo.svg'
 
 const Header = () => {
+  const pathname = usePathname()
+  
+  const navItems = [
+    { name: 'Game', href: '/game' },
+    { name: 'Dashboard', href: '/dashboard' },
+  ]
+
   return (
     <header className="supports-backdrop-blur:bg-white/60 dark:border-slate-50/1 sticky top-0 z-40 flex w-full flex-row flex-wrap items-center justify-center gap-4 bg-white/95 px-3 py-3 backdrop-blur transition-colors duration-500 sm:justify-between sm:gap-3 lg:z-50 lg:border-b lg:border-slate-900/10 dark:bg-transparent">
-      <Link
+      <NextLink
         href="/"
         className="flex flex-col items-center justify-center gap-1 text-sds-dark outline-none hover:no-underline sm:flex-row dark:text-sds-light"
       >
@@ -23,15 +31,29 @@ const Header = () => {
           className="h-12 w-12"
         />
         <div className="pt-1 text-xl sm:text-2xl">{APP_NAME}</div>
-      </Link>
+      </NextLink>
 
       <div className="flex w-full flex-col items-center justify-center gap-3 sm:w-auto sm:flex-row">
-        <Link href="/game" className="text-sds-dark hover:text-blue-500 dark:text-sds-light">
-            Game
-        </Link>
-        <Link href="/dashboard" className="text-sds-dark hover:text-blue-500 dark:text-sds-light">
-            Dashboard
-        </Link>
+        {/* Navigation */}
+        <nav className="flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50/50 p-1 dark:border-gray-800 dark:bg-gray-900/50">
+          {navItems.map((item) => {
+            const isActive = pathname === item.href
+            return (
+              <NextLink
+                key={item.href}
+                href={item.href}
+                className={`px-4 py-1.5 text-sm font-medium transition-all rounded-full ${
+                  isActive
+                    ? 'bg-white text-black shadow-sm dark:bg-gray-800 dark:text-white'
+                    : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-800/50'
+                }`}
+              >
+                {item.name}
+              </NextLink>
+            )
+          })}
+        </nav>
+
         <div className="flex flex-row items-center justify-center gap-3">
           <Balance />
           <NetworkType />

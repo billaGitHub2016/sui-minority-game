@@ -325,10 +325,7 @@ export default function TopicCard({
                                         style={{ width: '100%', minHeight: '40px', padding: '8px', backgroundColor: 'var(--tech-accent)' }}
                                     >   
                                         <Text size="2" weight="bold" align="center" style={{ color: 'black', wordBreak: 'break-word' }}>
-                                            Draw:
-                                        </Text>
-                                        <Text size="2" weight="bold" align="center" style={{ color: 'black', wordBreak: 'break-word' }}>
-                                            {topic.option_a} ({onChainData?.count_a || 0}) <br/> vs <br/> {topic.option_b} ({onChainData?.count_b || 0})
+                                            Draw: {topic.option_a} ({onChainData?.count_a || 0}) vs {topic.option_b} ({onChainData?.count_b || 0})
                                         </Text>
                                     </Flex>
                                 ) : (

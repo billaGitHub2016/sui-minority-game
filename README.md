@@ -117,9 +117,6 @@ Key Prompt:
 3. 技术栈 Prompt (Tech Stack):
     前端使用 Next.js, React, TypeScript, Radix UI 和 Tailwind CSS 构建。后端智能合约使用 Sui Move 语言编写。使用 Supabase 处理链下数据协调和定时任务。
 
-AI Prompt: "Act as a software developer. I want you to help me with the Minority Game project. I have a question about the AI tool used for generating the code. Can you provide me with the details of the AI model and the prompt used?"
-
-
 
 ## License
 

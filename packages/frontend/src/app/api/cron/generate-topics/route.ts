@@ -41,16 +41,41 @@ export async function GET(request: Request) {
         const { data: recentTopics } = await supabase.from('topics').select('title').order('created_at', { ascending: false }).limit(50)
         const existingTitles = recentTopics?.map(t => t.title).join('\n') || ''
 
+        // Randomize theme to ensure diversity
+        const themes = [
+            'Sci-Fi & Future Paradoxes', 
+            'Deep Moral Dilemmas', 
+            'Controversial Food Opinions', 
+            'Pop Culture Battles', 
+            'Historical "What Ifs"', 
+            'Daily Life & Habits', 
+            'Abstract Concepts (Time vs Money)', 
+            'Nature vs Technology', 
+            'Superpowers & Magic', 
+            'Work & Career Choices'
+        ];
+        
+        // Shuffle and pick 4 unique themes
+        const shuffledThemes = themes.sort(() => 0.5 - Math.random());
+        const selectedThemes = shuffledThemes.slice(0, 4);
+
         const completion = await openai.chat.completions.create({
           model: "deepseek-v3-aliyun",
           messages: [
-            { role: "system", content: "You are a creative game master for a 'Minority Game'. Generate 4 binary choice topics. Rules: 1. Topics must be diverse (Tech, Daily Life, Philosophy, etc.). 2. Descriptions must be short and punchy (max 15 words). 3. Options must be very short (1-3 words max). 4. Output JSON: { topics: [{ title, option_a, option_b, description }] }." },
-            { role: "user", content: `Generate 4 new topics. Do not repeat:\n${existingTitles}` }
+            { role: "system", content: `You are a creative game master for a 'Minority Game'. Generate 4 binary choice topics. 
+Rules:
+1. Generate EXACTLY one topic for EACH of these 4 themes: ${selectedThemes.join(', ')}.
+2. Topics must be engaging and potentially divisive (50/50 split ideal).
+3. Descriptions must be short and punchy (max 15 words).
+4. Options must be very short (1-3 words max).
+5. Output JSON: { "topics": [{ "title": "...", "option_a": "...", "option_b": "...", "description": "..." }] }.
+6. STRICTLY DO NOT REPEAT any of the provided existing titles. Avoid similar concepts.` },
+            { role: "user", content: `Generate 4 new topics. Avoid these existing titles:\n${existingTitles}` }
           ],
           response_format: { type: "json_object" }
         });
-        console.log('completion = ', completion)
-        console.log('completion.choices[0].message.content = ', completion.choices[0].message.content)
+        // console.log('completion = ', completion)
+        // console.log('completion.choices[0].message.content = ', completion.choices[0].message.content)
 
         const content = completion.choices[0].message.content;
         if (!content) throw new Error("No content from OpenAI");

@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { Flex, Heading, Text, Card, Grid, Box, Badge, Separator, Button } from '@radix-ui/themes'
 import { Clock, Shield, Brain, Trophy, Coins, Users, Lock, Zap } from 'lucide-react'
+import LeaderboardTicker from './LeaderboardTicker'
 
 export default function LandingPage() {
   return (
@@ -178,6 +179,10 @@ export default function LandingPage() {
                 Enter the Arena
              </Button>
         </Link>
+      </Flex>
+      
+      <Flex direction="column" align="center" gap="4" mt="4">
+        <LeaderboardTicker />
       </Flex>
     </Flex>
   )

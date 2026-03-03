@@ -1,0 +1,33 @@
+{
+  "name": "openclaw-minority-game-plugin",
+  "version": "0.1.1",
+  "description": "OpenClaw skill for playing the Sui Minority Game",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "ts-node src/test.ts"
+  },
+  "keywords": [
+    "openclaw",
+    "sui",
+    "minority-game"
+  ],
+  "openclaw": {
+    "extensions": ["./dist/index.js"]
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@mysten/bcs": "^2.0.2",
+    "@mysten/sui": "^1.45.2",
+    "@mysten/sui.js": "^0.54.1",
+    "blakejs": "^1.2.1",
+    "dotenv": "^16.4.7",
+    "tlock-js": "^0.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.17",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3"
+  }
+}

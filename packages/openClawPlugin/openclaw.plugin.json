@@ -1,0 +1,65 @@
+{
+  "id": "openclaw-minority-game-plugin",
+  "name": "Minority Game",
+  "version": "0.1.1",
+  "description": "Participate in the Sui Minority Game: vote on polls, try to be in the minority.",
+  "main": "dist/index.js",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": true
+      },
+      "privateKey": {
+        "type": "string",
+        "description": "Sui wallet private key (suiprivkey... or hex)"
+      },
+      "network": {
+        "type": "string",
+        "enum": ["mainnet", "testnet", "devnet", "localnet"],
+        "default": "testnet"
+      },
+      "fullnodeUrl": {
+        "type": "string",
+        "description": "Custom Sui fullnode URL"
+      },
+      "packageId": {
+        "type": "string",
+        "description": "Sui Minority Game package ID"
+      },
+      "apiUrl": {
+        "type": "string",
+        "description": "URL of the Sui Minority Game API"
+      },
+      "openai": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "apiKey": {
+            "type": "string",
+            "description": "OpenAI API key"
+          },
+          "baseUrl": {
+            "type": "string",
+            "description": "OpenAI API base URL"
+          }
+        }
+      }
+    }
+  },
+  "uiHints": {
+    "enabled": {
+      "label": "Enable Minority Game",
+      "description": "Allow the agent to participate in Sui Minority Game voting"
+    },
+    "suiPrivateKey": {
+      "label": "Sui Private Key",
+      "secret": true
+    },
+    "suiNetwork": {
+      "label": "Sui Network"
+    }
+  }
+}

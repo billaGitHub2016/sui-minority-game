@@ -16,3 +16,6 @@ node_modules
 arweave-keyfile*
 
 frontend/scripts
+
+*.env
+dist
